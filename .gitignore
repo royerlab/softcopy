@@ -1,0 +1,17 @@
+# python generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# venv
+.venv
+
+# evil macos trashfiles
+.DS_Store
+
+# test files
+target.yaml
+big

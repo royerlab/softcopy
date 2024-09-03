@@ -1,0 +1,22 @@
+[project]
+name = "data-transfer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "psutil>=6.0.0",
+    "pyyaml>=6.0.2",
+    "click>=8.1.7",
+    "numpy>=2.1.0",
+    "tensorstore>=0.1.64",
+    "watchdog>=5.0.0",
+]
+
+[project.scripts]
+data_transfer = "data_transfer.main:main"
+slow_write = "data_transfer.slow_write:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

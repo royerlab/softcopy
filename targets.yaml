@@ -1,0 +1,9 @@
+# Test targets file
+
+targets:
+  - source: big/input
+    destination: big/output
+  # - source: ~/Documents/source/czpeedy/big/sharded/
+  #   destination: big/output_sharded
+  # - source: ~/Documents/source/czpeedy/big/output/
+  #   destination: big/output
