@@ -2,6 +2,12 @@ version = 1
 requires-python = ">=3.12"
 
 [[package]]
+name = "asciitree"
+version = "0.3.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2d/6a/885bc91484e1aa8f618f6f0228d76d0e67000b0fdd6090673b777e311913/asciitree-0.3.3.tar.gz", hash = "sha256:4aa4b9b649f85e3fcb343363d97564aa1fb62e249677f2e18a96765145cc0f6e", size = 3951 }
+
+[[package]]
 name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
@@ -23,7 +29,7 @@ wheels = [
 ]
 
 [[package]]
-name = "data-transfer"
+name = "softcopy"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -33,6 +39,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "tensorstore" },
     { name = "watchdog" },
+    { name = "zarr" },
 ]
 
 [package.metadata]
@@ -43,6 +50,16 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "tensorstore", specifier = ">=0.1.64" },
     { name = "watchdog", specifier = ">=5.0.0" },
+    { name = "zarr", specifier = ">=2.18.2" },
+]
+
+[[package]]
+name = "fasteners"
+version = "0.19"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/d4/e834d929be54bfadb1f3e3b931c38e956aaa3b235a46a3c764c26c774902/fasteners-0.19.tar.gz", hash = "sha256:b4f37c3ac52d8a445af3a66bce57b33b5e90b97c696b7b984f530cf8f0ded09c", size = 24832 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/bf/fd60001b3abc5222d8eaa4a204cd8c0ae78e75adc688f33ce4bf25b7fafa/fasteners-0.19-py3-none-any.whl", hash = "sha256:758819cb5d94cdedf4e836988b74de396ceacb8e2794d21f82d131fd9ee77237", size = 18679 },
 ]
 
 [[package]]
@@ -58,6 +75,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/37/d5/3f3085b3a155e1b84c7fc680f05538d31cf01b835aa19cb17edd4994693f/ml_dtypes-0.4.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ad6849a2db386b38e4d54fe13eb3293464561780531a918f8ef4c8169170dd49", size = 2181698 },
     { url = "https://files.pythonhosted.org/packages/8c/ef/5635b60d444db9c949b32d4e1a0a30b3ac237afbd71cce8bd1ccfb145723/ml_dtypes-0.4.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:eaa32979ebfde3a0d7c947cafbf79edc1ec77ac05ad0780ee86c1d8df70f2259", size = 2158784 },
     { url = "https://files.pythonhosted.org/packages/0f/b7/7cfca987ca898b64c0b7d185e957fbd8dccb64fe5ae9e44f68ec83371df5/ml_dtypes-0.4.0-cp312-cp312-win_amd64.whl", hash = "sha256:3b67ec73a697c88c1122038e0de46520e48dc2ec876d42cf61bc5efe3c0b7675", size = 127498 },
+]
+
+[[package]]
+name = "numcodecs"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f8/22/e5cba9013403186906390c0efb0ab0db60d4e580a8966650b2372ab967e1/numcodecs-0.13.0.tar.gz", hash = "sha256:ba4fac7036ea5a078c7afe1d4dffeb9685080d42f19c9c16b12dad866703aa2e", size = 5922216 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/98/f84a6c9d679897f771d81a725078ba8206e6d8cf0b76d12369497bec1ae3/numcodecs-0.13.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:f3cf462d2357998d7f6baaa0427657b0eeda3eb79fba2b146d2d04542912a513", size = 1565557 },
+    { url = "https://files.pythonhosted.org/packages/5a/08/2079fb77e0922d78a890a69a389bbb01f1335292c478827deb811a0a1009/numcodecs-0.13.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ac4dd5556fb126271e93bd1a02266e21b01d3617db448d70d00eec8e034506b4", size = 1173464 },
+    { url = "https://files.pythonhosted.org/packages/85/dd/c89fd8966b69ab4d6c6bd7496fb18bdf920f23dd9bcaec8c7ecce9871d0b/numcodecs-0.13.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:820be89729583c91601a6b35c052008cdd2665b25bfedb91b367cc155fb34ba0", size = 8836483 },
+    { url = "https://files.pythonhosted.org/packages/f3/b2/2fbf5c79e3df7344f3bcf711f2237f1bc70f0bc49826990023847c718050/numcodecs-0.13.0-cp312-cp312-win_amd64.whl", hash = "sha256:d67a859dd8a7f026829e91cb1799c26720cc9d29ee4ae0060cc7a581670abc06", size = 829715 },
 ]
 
 [[package]]
@@ -178,4 +210,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/dd/80/8e4360dcd907e7fb0c718811abecbf11ecf75f2fe92c77a6cfc6ff63158c/watchdog-5.0.0-py3-none-win32.whl", hash = "sha256:d1acef802916083f2ad7988efc7decf07e46e266916c0a09d8fb9d387288ea12", size = 78790 },
     { url = "https://files.pythonhosted.org/packages/bd/94/1344f73df316dd199b50258d2afad05e1843ff87a2dde969640b3bf6c795/watchdog-5.0.0-py3-none-win_amd64.whl", hash = "sha256:3c2d50fdb86aa6df3973313272f5a17eb26eab29ff5a0bf54b6d34597b4dc4e4", size = 78793 },
     { url = "https://files.pythonhosted.org/packages/80/05/4128ae5cdf270bdd80ece30d02c72c0a67433e04c44a3a62e91dce7cfaf6/watchdog-5.0.0-py3-none-win_ia64.whl", hash = "sha256:1d17ec7e022c34fa7ddc72aa41bf28c9d1207ffb193df18ba4f6fde453725b3c", size = 78791 },
+]
+
+[[package]]
+name = "zarr"
+version = "2.18.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asciitree" },
+    { name = "fasteners", marker = "sys_platform != 'emscripten'" },
+    { name = "numcodecs" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b3/00/ac5c518ff1c1b1cc87a62f86ad9d19c647c19d969a91faa40d3b6342ccaa/zarr-2.18.2.tar.gz", hash = "sha256:9bb393b8a0a38fb121dbb913b047d75db28de9890f6d644a217a73cf4ae74f47", size = 3603055 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/bd/8d881d8ca6d80fcb8da2b2f94f8855384daf649499ddfba78ffd1ee2caa3/zarr-2.18.2-py3-none-any.whl", hash = "sha256:a638754902f97efa99b406083fdc807a0e2ccf12a949117389d2a4ba9b05df38", size = 210228 },
 ]

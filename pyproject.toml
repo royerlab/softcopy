@@ -1,5 +1,5 @@
 [project]
-name = "data-transfer"
+name = "softcopy"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -11,11 +11,13 @@ dependencies = [
     "numpy>=2.1.0",
     "tensorstore>=0.1.64",
     "watchdog>=5.0.0",
+    "zarr>=2.18.2",
 ]
 
 [project.scripts]
-data_transfer = "data_transfer.main:main"
-slow_write = "data_transfer.slow_write:main"
+softcopy = "softcopy.main:main"
+slow_write = "softcopy.slow_write:main"
+to_ome = "softcopy.add_ome_metadata:main"
 
 [build-system]
 requires = ["hatchling"]

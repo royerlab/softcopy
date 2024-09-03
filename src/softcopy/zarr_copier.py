@@ -58,7 +58,7 @@ class ZarrCopier:
         self._copy_procs = []
     
     def start(self):
-        ZarrCopier.create_zarr_folder_structure(self._destination, self._zarr_version, self._files_nd, self._log)
+        ZarrCopier.create_zarr_folder_structure(self._destination, 3, self._files_nd, self._log)
 
         for _ in range(self._n_copy_procs):
             proc = Process(target=_copy_worker, args=(self._queue, self._stop, self._observation_finished, self._files_nd, self._source, self._destination, self._log))
@@ -103,9 +103,10 @@ class ZarrCopier:
     def _index_existing_files(self):
         is_complete = False
         chunk_count = 0
-        for root, dirs, files in os.walk(self._source):
+        for dir, _, files in os.walk(self._source):
             for file in files:
-                packed_name = pack_name(file, self._zarr_version, self._files_nd)
+                rel_dir = os.path.relpath(dir, self._source)
+                packed_name = pack_name(os.path.join(rel_dir, file), self._zarr_version, self._files_nd)
                 if packed_name._index is not None:
                     chunk_count += 1
                 if Path(file).stem == "complete":
@@ -113,7 +114,6 @@ class ZarrCopier:
                 self._queue.put(packed_name)
         
         return is_complete or chunk_count == self._files_nd.prod()
-        
     
     def find_zarr_json(archive_path: Path, log: Logger = LOG):
         # Find the zarr json file in the archive folder:
@@ -156,7 +156,8 @@ def _copy_worker(queue: Queue, stop, observation_finished, files_nd, source, des
         try:
             data = queue.get(timeout=1)
             srcfile = data.get_path(files_nd, source)
-            destfile = data.get_path(files_nd, destination)
+            # destfile = data.get_path(files_nd, destination)
+            destfile = PackedName3.get_path(data, files_nd, destination)
             copyfile(srcfile, destfile)
         except Empty as e:
             # If we didn't get anything from the queue, and the observation is finished, we can stop
@@ -169,8 +170,7 @@ def pack_name(name: str, zarr_version: int, files_nd: np.ndarray):
     if zarr_version == 2:
         return PackedName2(name, files_nd)
     else:
-        raise "bad"
-        # return PackedName3(name, files_nd)
+        return PackedName3(name, files_nd)
 
 class PackedName2:
     """
@@ -200,6 +200,53 @@ class PackedName2:
         elif self._index is not None:
             chunk_index_nd = np.unravel_index(self._index, files_nd)
             return zarr_location / ".".join(map(str, chunk_index_nd))
+
+class PackedName3:
+    """
+    A compressed path data type for data sets where most files are zarr 3 chunks. Rather than storing the long
+    filepath to the chunk, a single ravelled integer index is stored when possible.
+    """
+
+    _path: Optional[Path] = None
+    _index: Optional[int] = None
+
+    # IMPORTANT: `name` should be the name relative to the source directory. i.e. if the source is
+    # /path/to/source, and you are packing the name /path/to/source/c/0/0/0, you should pass "c/0/0/0".
+    # otherwise, this will break.
+    def __init__(self, name: str, files_nd: np.ndarray):
+        print(name)
+        self._path = Path(name)
+        parts = self._path.parts
+
+        # If this is a chunk, it must have path parts that end like c, number, number, ..., number
+        # if there ar fewer parts than expected, short circuit:
+        if len(parts) < files_nd.size + 1:
+            return
+        
+        # We have the right number of path components. Verify that the first is 'c':
+        if parts[0] != 'c':
+            return
+        
+        # Verify that all the other parts are integers:
+        try:
+            chunk_index_nd = list(map(int, parts[-files_nd.size:]))
+        except ValueError:
+            return
+
+        # Bounds check the chunk index:
+        if not all(0 <= coord < files_nd[i] for i, coord in enumerate(chunk_index_nd)):
+            return
+        
+        # We made it! :) We don't keep the path, we just compress it to an index
+        self._index = np.ravel_multi_index(chunk_index_nd, files_nd)
+        self._path = None
+    
+    def get_path(self, files_nd: np.ndarray, zarr_location: Path):
+        if self._path is not None:
+            return zarr_location / self._path
+        elif self._index is not None:
+            chunk_index_nd = np.unravel_index(self._index, files_nd)
+            return zarr_location / "c" / Path(*map(str, chunk_index_nd))
 
 class ZarrFileEventHandler(FileSystemEventHandler):
     def __init__(self, zarr_version: int, files_nd: np.ndarray, cv: Condition, queue: Queue, log: Logger = LOG):
