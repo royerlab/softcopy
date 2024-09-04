@@ -29,31 +29,6 @@ wheels = [
 ]
 
 [[package]]
-name = "softcopy"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "click" },
-    { name = "numpy" },
-    { name = "psutil" },
-    { name = "pyyaml" },
-    { name = "tensorstore" },
-    { name = "watchdog" },
-    { name = "zarr" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "click", specifier = ">=8.1.7" },
-    { name = "numpy", specifier = ">=2.1.0" },
-    { name = "psutil", specifier = ">=6.0.0" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "tensorstore", specifier = ">=0.1.64" },
-    { name = "watchdog", specifier = ">=5.0.0" },
-    { name = "zarr", specifier = ">=2.18.2" },
-]
-
-[[package]]
 name = "fasteners"
 version = "0.19"
 source = { registry = "https://pypi.org/simple" }
@@ -172,6 +147,33 @@ wheels = [
 ]
 
 [[package]]
+name = "softcopy"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "click" },
+    { name = "numpy" },
+    { name = "psutil" },
+    { name = "pyyaml" },
+    { name = "tensorstore" },
+    { name = "tzdata" },
+    { name = "watchdog" },
+    { name = "zarr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.7" },
+    { name = "numpy", specifier = ">=2.1.0" },
+    { name = "psutil", specifier = ">=6.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "tensorstore", specifier = ">=0.1.64" },
+    { name = "tzdata", specifier = ">=2024.1" },
+    { name = "watchdog", specifier = ">=5.0.0" },
+    { name = "zarr", specifier = ">=2.18.2" },
+]
+
+[[package]]
 name = "tensorstore"
 version = "0.1.64"
 source = { registry = "https://pypi.org/simple" }
@@ -186,6 +188,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/44/7e/1522b9092e396d64d84ea799ef1f9c1d7e7da3514277fa8b908e1d8d26d1/tensorstore-0.1.64-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9968f9a9b9cd7c669bfae5244307e105c006038e8dd156eebbf2146f771ba369", size = 13646074 },
     { url = "https://files.pythonhosted.org/packages/0a/eb/09210bb4a8afc991eb9cb794269ff276a62f15936aef2b64335b61412f7a/tensorstore-0.1.64-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:806774968ee4cc8809114281730e9fad5970a94a7ef9104bc54fa35a32068b2f", size = 14923761 },
     { url = "https://files.pythonhosted.org/packages/c7/70/27281fb67817d69dddc5eec9827513f8e341e3a52cb85f066a84e9274a47/tensorstore-0.1.64-cp312-cp312-win_amd64.whl", hash = "sha256:cc315029f49c0f294f0721462c221e0ef4c15360a526cc34392ac81565fd63b8", size = 11523992 },
+]
+
+[[package]]
+name = "tzdata"
+version = "2024.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/5b/e025d02cb3b66b7b76093404392d4b44343c69101cc85f4d180dd5784717/tzdata-2024.1.tar.gz", hash = "sha256:2674120f8d891909751c38abcdfd386ac0a5a1127954fbc332af6b5ceae07efd", size = 190559 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/58/f9c9e6be752e9fcb8b6a0ee9fb87e6e7a1f6bcab2cdc73f02bb7ba91ada0/tzdata-2024.1-py2.py3-none-any.whl", hash = "sha256:9068bc196136463f5245e51efda838afa15aaeca9903f49050dfa2679db4d252", size = 345370 },
 ]
 
 [[package]]
