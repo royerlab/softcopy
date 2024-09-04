@@ -36,7 +36,7 @@
 import json
 from pathlib import Path
 import itertools
-from shutil import move
+import shutil
 import sys
 import re
 from datetime import datetime
@@ -54,8 +54,14 @@ from .zarr_copier import ZarrCopier
 
 @click.command()
 @click.argument("source", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path))
-@click.argument("daxi-metadata", type=click.File(mode="r"), required=False)
-def main(source, daxi_metadata):
+@click.option("--daxi_metadata", type=click.File(mode="r"), default=None)
+@click.option("--run", default=False, is_flag=True)
+def main(source, daxi_metadata, run):
+    if run:
+        move = shutil.move
+    else:
+        move = print
+
     zarr_json_path = ZarrCopier.find_zarr_json(source)
     zarr_version = None
 
@@ -70,6 +76,13 @@ def main(source, daxi_metadata):
             chunks = np.array(zarr_json['chunk_grid']['configuration']['chunk_shape'])
         
         files_nd = np.ceil(shape / chunks).astype(int)
+
+    # undo:
+    # for chunk in itertools.product(*[range(n) for n in files_nd]):
+    #     chunk2 = chunk[:2] + chunk[3:]
+    #     chunk_file = source / "0" / ".".join(map(str, chunk2))
+    #     move(chunk_file, source / ".".join(map(str, chunk)))
+    # exit(1)
 
     # integrity check:
     for chunk in itertools.product(*[range(n) for n in files_nd]):
@@ -188,7 +201,7 @@ def main(source, daxi_metadata):
     }
 
     if daxi_metadata:
-        key_pattern = re.compile("T_(\d+).V_(\d+)")
+        key_pattern = re.compile("T_(\\d+).V_(\\d+)")
         tz = ZoneInfo('America/Los_Angeles')
         time_windows = {}
         # Collect all of the timestamps and append them to the ome-zarr metadata:
@@ -207,30 +220,51 @@ def main(source, daxi_metadata):
                 }
 
         ome_metadata["daxi"]["timing_detail"] = time_windows
+        ome_metadata["daxi"]["framerate_hz"] = float(dm["Frame rate"])
 
     zattrs = source / ".zattrs"
     if zattrs.exists():
         print(".zattrs file exists - aborting to avoid corruption.")
         exit(1)
     
-    with open(zattrs, "w") as zattrs_file:
-        zattrs_file.write(
-            json.dumps(ome_metadata, indent=4)
-        )
-    print(ome_metadata)
-    exit(1)
+    if run:
+        # Execute the transformation:
+        with open(zattrs, "w") as zattrs_file:
+            zattrs_file.write(json.dumps(ome_metadata, indent=4))
+        
+        zgroup = source / ".zgroup"
+        with open(zgroup, "w") as zgroup_file:
+            zgroup_file.write(json.dumps({"zarr_format": 2}, indent=4))
     
-    # Create the folder for this multiscale:
-    (source / "0").mkdir(exist_ok=True)
+        # Create the folder for this multiscale:
+        # (source / "0").mkdir(exist_ok=True)
+        files_nd_reduced = list(files_nd[:2]) + list(files_nd[3:])
+        create_ome_zarr_folder_structure(source, files_nd_reduced)
 
-    # Execute the transformation:
-    # Move the .zarray file:
-    print(source / ".zarray", source / "0" / ".zarray")
+        # Fix the dimension separator and shape of the array:
+        zarray_filepath = source / ".zarray"
+        with open(zarray_filepath, "r") as zarray_file:
+            zarray_json = json.load(zarray_file)
+        
+        zarray_json["dimension_separator"] = '/'
+        # Remove 6th dimension (for color) to conform to ome zarr
+        for key in ("shape", "chunks"):
+            arr = zarray_json[key]
+            zarray_json[key] = arr[:2] + arr[3:]
+
+        with open(zarray_filepath, "w") as zarray_file:
+            zarray_file.write(json.dumps(zarray_json, indent=4))
+
+        # Move the .zarray file:
+        move(zarray_filepath, source / "0" / ".zarray")
+
 
     for chunk in itertools.product(*[range(n) for n in files_nd]):
-        filename = ".".join(map(str, chunk))
-        chunk_file = source / filename
-        print(chunk_file, source / "0" / filename)
+        src_filename = ".".join(map(str, chunk))
+        dest_chunk = chunk[:2] + chunk[3:]
+        dest_path = source / "0" / Path(*map(str, dest_chunk))
+        # dest_filename = ".".join(map(str, dest_chunk))
+        move(source / src_filename, dest_path)
 
         # Sheng's code uses a format given by Time x View x Color x Z x Y x X
         # The acquisitions we use are only ever single color at the moment so we can probably just ignore
