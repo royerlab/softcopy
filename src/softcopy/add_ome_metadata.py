@@ -162,28 +162,14 @@ def main(source, daxi_metadata, run):
                     "color": "FFFFFF",
                     "family": "linear",
                     "inverted": False,
-                    "label": "v0_c488",
+                    "label": f"v{view_idx}_c488",
                     "window": {
                         "end": 65535.0,
                         "max": 65535.0,
                         "min": 0.0,
                         "start": 0.0
                     }
-                },
-                {
-                    "active": True,
-                    "coefficient": 1.0,
-                    "color": "FFFFFF",
-                    "family": "linear",
-                    "inverted": False,
-                    "label": "v1_c488",
-                    "window": {
-                        "end": 65535.0,
-                        "max": 65535.0,
-                        "min": 0.0,
-                        "start": 0.0
-                    }
-                }
+                } for view_idx in range(shape[1])
             ],
             "id": 0,
             "name": "",
