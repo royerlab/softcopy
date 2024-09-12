@@ -89,7 +89,7 @@ def write_v2(destination, data, timepoints):
                 },
                 "dtype": "<u2",
                 "shape": [timepoints, *data.shape],
-                "chunks": [1, 600, 600, 600],
+                "chunks": [1, 200, 200, 200],
             },
             "create": True,
             "delete_existing": True,
