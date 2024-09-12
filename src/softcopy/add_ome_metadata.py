@@ -56,13 +56,18 @@ from .zarr_copier import ZarrCopier
 @click.argument("source", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path))
 @click.option("--daxi_metadata", type=click.File(mode="r"), default=None)
 @click.option("--run", default=False, is_flag=True)
-def main(source, daxi_metadata, run):
+@click.option("--resume", default=False, is_flag=True, help="If you have partially completed a run, this will continue it (i.e. no folder creation, no )")
+def main(source, daxi_metadata, run, resume):
     if run:
         move = shutil.move
     else:
         move = print
 
-    zarr_json_path = ZarrCopier.find_zarr_json(source)
+    if resume:
+        zarr_json_path = ZarrCopier.find_zarr_json(source / '0')
+    else:
+        zarr_json_path = ZarrCopier.find_zarr_json(source)
+
     zarr_version = None
 
     with open(zarr_json_path.expanduser()) as zarr_json_file:
@@ -77,180 +82,198 @@ def main(source, daxi_metadata, run):
         
         files_nd = np.ceil(shape / chunks).astype(int)
 
-    # undo:
-    # for chunk in itertools.product(*[range(n) for n in files_nd]):
-    #     chunk2 = chunk[:2] + chunk[3:]
-    #     chunk_file = source / "0" / ".".join(map(str, chunk2))
-    #     move(chunk_file, source / ".".join(map(str, chunk)))
-    # exit(1)
+    if not resume:
 
-    # integrity check:
-    for chunk in itertools.product(*[range(n) for n in files_nd]):
-        chunk_file = source / ".".join(map(str, chunk))
-        if not chunk_file.exists():
-            print(f"Missing chunk file {chunk_file}")
-            exit(1)
-    
-    # Ensure we have all the metadata that we'll need:
-    if daxi_metadata:
-        dm = yaml.safe_load(daxi_metadata)
-        # print(dm)
-    
-    ome_metadata = {
-        "history": [
-            " ".join(sys.argv)
-        ],
-        "multiscales": [
-            {
-                "axes": [
-                    {
-                        "name": "T",
-                        "type": "time",
-                        "unit": "second"
-                    },
-                    {
-                        "name": "C",
-                        "type": "channel"
-                    },
-                    {
-                        "name": "Z",
-                        "type": "space",
-                        "unit": "micrometer"
-                    },
-                    {
-                        "name": "Y",
-                        "type": "space",
-                        "unit": "micrometer"
-                    },
-                    {
-                        "name": "X",
-                        "type": "space",
-                        "unit": "micrometer"
-                    }
-                ],
-                "coordinateTransformations": [
-                    {
-                        "type": "identity"
-                    }
-                ],
-                "datasets": [
-                    {
-                        "coordinateTransformations": [
-                            {
-                                "scale": [
-                                    1.0,
-                                    1.0,
-                                    dm["Z step size (um)"] if daxi_metadata else 1.24,
-                                    0.439,
-                                    0.439
-                                ],
-                                "type": "scale"
-                            }
-                        ],
-                        "path": "0"
-                    }
-                ],
-                "name": "0",
-                "version": "0.4"
-            }
-        ],
-        "omero": {
-            "channels": [
-                {
-                    "active": True,
-                    "coefficient": 1.0,
-                    "color": "FFFFFF",
-                    "family": "linear",
-                    "inverted": False,
-                    "label": f"v{view_idx}_c488",
-                    "window": {
-                        "end": 65535.0,
-                        "max": 65535.0,
-                        "min": 0.0,
-                        "start": 0.0
-                    }
-                } for view_idx in range(shape[1])
+        # undo:
+        # for chunk in itertools.product(*[range(n) for n in files_nd]):
+        #     chunk2 = chunk[:2] + chunk[3:]
+        #     chunk_file = source / "0" / ".".join(map(str, chunk2))
+        #     move(chunk_file, source / ".".join(map(str, chunk)))
+        # exit(1)
+
+        # integrity check:
+        for chunk in itertools.product(*[range(n) for n in files_nd]):
+            chunk_file = source / ".".join(map(str, chunk))
+            if not chunk_file.exists():
+                print(f"Missing chunk file {chunk_file}")
+                exit(1)
+        
+        # Ensure we have all the metadata that we'll need:
+        if daxi_metadata:
+            dm = yaml.safe_load(daxi_metadata)
+            # print(dm)
+        
+        ome_metadata = {
+            "history": [
+                " ".join(sys.argv)
             ],
-            "id": 0,
-            "name": "",
-            "rdefs": {
-                "defaultT": 0,
-                "defaultZ": 0,
-                "model": "color",
-                "projection": "normal"
-            },
-            "version": "0.4",
-        },
-        "daxi": {
-            "version": "0.0"
-        }
-    }
-
-    if daxi_metadata:
-        key_pattern = re.compile("T_(\\d+).V_(\\d+)")
-        tz = ZoneInfo('America/Los_Angeles')
-        time_windows = {}
-        # Collect all of the timestamps and append them to the ome-zarr metadata:
-        for (key, value) in dm.items():
-            match = key_pattern.match(key)
-            if match:
-                timepoint = int(match.group(1))
-                view = int(match.group(2))
-                start_dt, end_dt = [datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz) for date_str in (value["start"], value["end"])]
-                if timepoint not in time_windows:
-                    time_windows[timepoint] = {}
-                
-                time_windows[timepoint][view] = {
-                    "start": start_dt.isoformat(),
-                    "end": end_dt.isoformat()
+            "multiscales": [
+                {
+                    "axes": [
+                        {
+                            "name": "T",
+                            "type": "time",
+                            "unit": "second"
+                        },
+                        {
+                            "name": "C",
+                            "type": "channel"
+                        },
+                        {
+                            "name": "Z",
+                            "type": "space",
+                            "unit": "micrometer"
+                        },
+                        {
+                            "name": "Y",
+                            "type": "space",
+                            "unit": "micrometer"
+                        },
+                        {
+                            "name": "X",
+                            "type": "space",
+                            "unit": "micrometer"
+                        }
+                    ],
+                    "coordinateTransformations": [
+                        {
+                            "type": "identity"
+                        }
+                    ],
+                    "datasets": [
+                        {
+                            "coordinateTransformations": [
+                                {
+                                    "scale": [
+                                        1.0,
+                                        1.0,
+                                        dm["Z step size (um)"] if daxi_metadata else 1.24,
+                                        0.439,
+                                        0.439
+                                    ],
+                                    "type": "scale"
+                                }
+                            ],
+                            "path": "0"
+                        }
+                    ],
+                    "name": "0",
+                    "version": "0.4"
                 }
+            ],
+            "omero": {
+                "channels": [
+                    {
+                        "active": True,
+                        "coefficient": 1.0,
+                        "color": "FFFFFF",
+                        "family": "linear",
+                        "inverted": False,
+                        "label": f"v{view_idx}_c488",
+                        "window": {
+                            "end": 65535.0,
+                            "max": 65535.0,
+                            "min": 0.0,
+                            "start": 0.0
+                        }
+                    } for view_idx in range(shape[1])
+                ],
+                "id": 0,
+                "name": "",
+                "rdefs": {
+                    "defaultT": 0,
+                    "defaultZ": 0,
+                    "model": "color",
+                    "projection": "normal"
+                },
+                "version": "0.4",
+            },
+            "daxi": {
+                "version": "0.0"
+            }
+        }
 
-        ome_metadata["daxi"]["timing_detail"] = time_windows
-        ome_metadata["daxi"]["framerate_hz"] = float(dm["Frame rate"])
+        daxi_json = {"version": "0.0"}
 
-    zattrs = source / ".zattrs"
-    if zattrs.exists():
-        print(".zattrs file exists - aborting to avoid corruption.")
-        exit(1)
-    
-    if run:
-        # Execute the transformation:
-        with open(zattrs, "w") as zattrs_file:
-            zattrs_file.write(json.dumps(ome_metadata, indent=4))
+        if daxi_metadata:
+            key_pattern = re.compile("T_(\\d+).V_(\\d+)")
+            tz = ZoneInfo('America/Los_Angeles')
+            time_windows = {}
+            # Collect all of the timestamps and append them to the ome-zarr metadata:
+            for (key, value) in dm.items():
+                match = key_pattern.match(key)
+                if match:
+                    timepoint = int(match.group(1))
+                    view = int(match.group(2))
+                    start_dt, end_dt = [datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz) for date_str in (value["start"], value["end"])]
+                    if timepoint not in time_windows:
+                        time_windows[timepoint] = {}
+                    
+                    time_windows[timepoint][view] = {
+                        "start": start_dt.isoformat(),
+                        "end": end_dt.isoformat()
+                    }
+
+            daxi_json["timing_detail"] = time_windows
+            daxi_json["framerate_hz"] = float(dm["Frame rate"])
+
+        zattrs = source / ".zattrs"
+        if zattrs.exists():
+            print(".zattrs file exists - aborting to avoid corruption.")
+            exit(1)
         
-        zgroup = source / ".zgroup"
-        with open(zgroup, "w") as zgroup_file:
-            zgroup_file.write(json.dumps({"zarr_format": 2}, indent=4))
-    
-        # Create the folder for this multiscale:
-        # (source / "0").mkdir(exist_ok=True)
-        files_nd_reduced = list(files_nd[:2]) + list(files_nd[3:])
-        create_ome_zarr_folder_structure(source, files_nd_reduced)
-
-        # Fix the dimension separator and shape of the array:
-        zarray_filepath = source / ".zarray"
-        with open(zarray_filepath, "r") as zarray_file:
-            zarray_json = json.load(zarray_file)
+        if run:
+            # Execute the transformation:
+            with open(zattrs, "w") as zattrs_file:
+                zattrs_file.write(json.dumps(ome_metadata, indent=4))
+            
+            if daxi_metadata:
+                with open(source / "daxi.json", "w") as daxi_file:
+                    daxi_file.write(json.dumps(daxi_json, indent=4))
+            
+            zgroup = source / ".zgroup"
+            with open(zgroup, "w") as zgroup_file:
+                zgroup_file.write(json.dumps({"zarr_format": 2}, indent=4))
         
-        zarray_json["dimension_separator"] = '/'
-        # Remove 6th dimension (for color) to conform to ome zarr
-        for key in ("shape", "chunks"):
-            arr = zarray_json[key]
-            zarray_json[key] = arr[:2] + arr[3:]
+            # Create the folder for this multiscale:
+            # (source / "0").mkdir(exist_ok=True)
+            files_nd_reduced = list(files_nd[:2]) + list(files_nd[3:])
+            create_ome_zarr_folder_structure(source, files_nd_reduced)
 
-        with open(zarray_filepath, "w") as zarray_file:
-            zarray_file.write(json.dumps(zarray_json, indent=4))
+            # Fix the dimension separator and shape of the array:
+            zarray_filepath = source / ".zarray"
+            with open(zarray_filepath, "r") as zarray_file:
+                zarray_json = json.load(zarray_file)
+            
+            zarray_json["dimension_separator"] = '/'
+            # Remove 6th dimension (for color) to conform to ome zarr
+            for key in ("shape", "chunks"):
+                arr = zarray_json[key]
+                zarray_json[key] = arr[:2] + arr[3:]
 
-        # Move the .zarray file:
-        move(zarray_filepath, source / "0" / ".zarray")
+            with open(zarray_filepath, "w") as zarray_file:
+                zarray_file.write(json.dumps(zarray_json, indent=4))
+
+            # Move the .zarray file:
+            move(zarray_filepath, source / "0" / ".zarray")
 
 
+    if resume:
+        files_nd = list(files_nd[:2]) + [1] + list(files_nd[2:])
+        files_nd = np.array(files_nd)
+
+        # print(*[range(n) for n in files_nd])
     for chunk in itertools.product(*[range(n) for n in files_nd]):
+        # print('hi')
         src_filename = ".".join(map(str, chunk))
         dest_chunk = chunk[:2] + chunk[3:]
         dest_path = source / "0" / Path(*map(str, dest_chunk))
         # dest_filename = ".".join(map(str, dest_chunk))
-        move(source / src_filename, dest_path)
+        
+        # print((source/src_filename).is_file())
+        # print(source / src_filename)
+        if (source/src_filename).exists():
+            move(source / src_filename, dest_path)
 
         # Sheng's code uses a format given by Time x View x Color x Z x Y x X
         # The acquisitions we use are only ever single color at the moment so we can probably just ignore
