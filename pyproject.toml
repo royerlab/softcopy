@@ -8,9 +8,9 @@ keywords = ['python']
 requires-python = ">=3.8,<4.0"
 
 [project.urls]
-Homepage = "https://shinzlet.github.io/softcopy/"
-Repository = "https://github.com/shinzlet/softcopy"
-Documentation = "https://shinzlet.github.io/softcopy/"
+Homepage = "https://royerlab.github.io/softcopy/"
+Repository = "https://github.com/royerlab/softcopy"
+Documentation = "https://royerlab.github.io/softcopy/"
 
 [tool.uv]
 dev-dependencies = [

@@ -1,15 +1,15 @@
 # softcopy
 
-[![Release](https://img.shields.io/github/v/release/shinzlet/softcopy)](https://img.shields.io/github/v/release/shinzlet/softcopy)
-[![Build status](https://img.shields.io/github/actions/workflow/status/shinzlet/softcopy/main.yml?branch=main)](https://github.com/shinzlet/softcopy/actions/workflows/main.yml?query=branch%3Amain)
-[![codecov](https://codecov.io/gh/shinzlet/softcopy/branch/main/graph/badge.svg)](https://codecov.io/gh/shinzlet/softcopy)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/shinzlet/softcopy)](https://img.shields.io/github/commit-activity/m/shinzlet/softcopy)
-[![License](https://img.shields.io/github/license/shinzlet/softcopy)](https://img.shields.io/github/license/shinzlet/softcopy)
+[![Release](https://img.shields.io/github/v/release/royerlab/softcopy)](https://img.shields.io/github/v/release/royerlab/softcopy)
+[![Build status](https://img.shields.io/github/actions/workflow/status/royerlab/softcopy/main.yml?branch=main)](https://github.com/royerlab/softcopy/actions/workflows/main.yml?query=branch%3Amain)
+[![codecov](https://codecov.io/gh/royerlab/softcopy/branch/main/graph/badge.svg)](https://codecov.io/gh/royerlab/softcopy)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/royerlab/softcopy)](https://img.shields.io/github/commit-activity/m/royerlab/softcopy)
+[![License](https://img.shields.io/github/license/royerlab/softcopy)](https://img.shields.io/github/license/royerlab/softcopy)
 
 Copies zarr archives from an acquisition frontend to a different disk, using filesystem watching and lockfiles to allow copying during acquisition.
 
-- **Github repository**: <https://github.com/shinzlet/softcopy/>
-- **Documentation** <https://shinzlet.github.io/softcopy/>
+- **Github repository**: <https://github.com/royerlab/softcopy/>
+- **Documentation** <https://royerlab.github.io/softcopy/>
 
 ## Getting started with your project
 
@@ -21,7 +21,7 @@ First, create a repository on GitHub with the same name as this project, and the
 git init -b main
 git add .
 git commit -m "init commit"
-git remote add origin git@github.com:shinzlet/softcopy.git
+git remote add origin git@github.com:royerlab/softcopy.git
 git push -u origin main
 ```
 
@@ -63,8 +63,8 @@ To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookie
 ## Releasing a new version
 
 - Create an API Token on [PyPI](https://pypi.org/).
-- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/shinzlet/softcopy/settings/secrets/actions/new).
-- Create a [new release](https://github.com/shinzlet/softcopy/releases/new) on Github.
+- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/royerlab/softcopy/settings/secrets/actions/new).
+- Create a [new release](https://github.com/royerlab/softcopy/releases/new) on Github.
 - Create a new tag in the form `*.*.*`.
 
 For more details, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/cicd/#how-to-trigger-a-release).
