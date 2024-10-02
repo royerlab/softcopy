@@ -9,22 +9,14 @@ import pytest
 
 from softcopy.zarr_copier import ZarrCopier
 
-
-@pytest.fixture
-def temp_dir():
-    dirpath = tempfile.mkdtemp()
-    yield Path(dirpath)
-    shutil.rmtree(dirpath)
-
-
 def create_zarr_2_archive(path: Path, shape, chunks):
     zarr_json = {"zarr_format": 2, "shape": shape, "chunks": chunks}
     (path / ".zarray").write_text(json.dumps(zarr_json))
 
 
-def test_zarr_copier(temp_dir):
-    source = temp_dir / "source"
-    destination = temp_dir / "destination"
+def test_zarr_copier(workspace):
+    source = workspace / "source"
+    destination = workspace / "destination"
     source.mkdir()
     destination.mkdir()
 

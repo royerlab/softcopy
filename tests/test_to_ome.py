@@ -6,7 +6,6 @@ import tensorstore as ts
 
 from softcopy.to_ome import main
 
-
 def test_full_run():
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = Path(tmpdirname)
@@ -35,6 +34,5 @@ def test_full_run():
         top_level_contents = {node.name for node in tmpdir.iterdir()}
         expected_contents = {".zattrs", ".zgroup", "0"}
         assert top_level_contents == expected_contents
-
 
 # TODO: test for / dimension separator input, remove dim
