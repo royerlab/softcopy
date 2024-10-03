@@ -139,7 +139,7 @@ def test_slow_write_and_softcopy_ome_zarr(workspace, dummy_zarr_path, create_zar
     shutil.move(daxi_json_temp, daxi_json)
 
     # Create the complete file to signal that the write is done
-    (input_path / "complete").touch()
+    (input_path / "0" / "complete").touch()
 
     softcopy_process.join(timeout=120)
 
@@ -152,10 +152,10 @@ def test_slow_write_and_softcopy_ome_zarr(workspace, dummy_zarr_path, create_zar
         "kvstore": {"driver": "file", "path": str(input_path / "0")},
     }).result()
 
-    # assert (output_path / ".zgroup").exists() and (output_path / ".zgroup").read_text() == ".zgroup"
-    # assert (output_path / ".zattrs").exists() and (output_path / ".zattrs").read_text() == ".zattrs"
-    # assert (output_path / "daxi.json").exists() and (output_path / "daxi.json").read_text() == "daxi.json"
-    # assert not (output_path / "daxi.json.temp").exists()
+    assert (output_path / ".zgroup").exists() and (output_path / ".zgroup").read_text() == ".zgroup"
+    assert (output_path / ".zattrs").exists() and (output_path / ".zattrs").read_text() == ".zattrs"
+    assert (output_path / "daxi.json").exists() and (output_path / "daxi.json").read_text() == "daxi.json"
+    assert not (output_path / "daxi.json.temp").exists()
 
     copied_dataset = ts.open({
         "driver": "zarr",

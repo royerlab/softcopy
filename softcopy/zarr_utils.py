@@ -25,7 +25,7 @@ def identify_zarr_version(archive_path: Path, log: Logger = LOG) -> Optional[Lit
         metadata_file = archive_path / candidate_file
 
         if metadata_file.exists():
-            with metadata_file.open("r") as f:
+            with open(metadata_file) as f:
                 metadata = json.load(f)
             zarr_format = metadata.get("zarr_format")
             if zarr_format in KNOWN_VERSIONS:

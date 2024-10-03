@@ -38,11 +38,18 @@ def main(targets_file, verbose, nprocs):
 
     copiers = []
 
+    # TODO: actually run the copiers in parallel
+
     try:
         for target_id, target in enumerate(targets):
             source = Path(target["source"]).expanduser().absolute()
             destination = Path(target["destination"]).expanduser().absolute()
-            copier = ZarrCopier(source, destination, nprocs, LOG.getChild(f"Target {target_id}"))
+            # If the source ends with .ome.zarr, then infer ome mode for this entry:
+            
+            is_ome = source.name.endswith(".ome.zarr")
+            zarr_store_path = (source / "0") if is_ome else source
+            
+            copier = ZarrCopier(zarr_store_path, destination, nprocs, LOG.getChild(f"Target {target_id}"))
             copiers.append(copier)
             copier.start()
             copier.join()
