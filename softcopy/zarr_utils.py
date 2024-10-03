@@ -37,3 +37,16 @@ def identify_zarr_version(archive_path: Path, log: Logger = LOG) -> Optional[Lit
 
     log.debug(f"Could not identify zarr version from metadata files in archive folder {archive_path}")
     return None
+
+def dtype_string_zarr2(dtype):
+    endianness = dtype.byteorder
+    if endianness == "=":
+        endianness = "<"
+    bytesize = dtype.itemsize
+    dtype_kind = dtype.kind
+
+    if dtype_kind not in ("i", "f", "u"):
+        raise ValueError(f"Unsupported dtype kind: {dtype_kind}")
+
+    dtype_str = f"{endianness}{dtype_kind}{bytesize}"
+    return dtype_str

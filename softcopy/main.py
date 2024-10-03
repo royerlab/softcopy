@@ -14,16 +14,16 @@ LOG = logging.getLogger(__name__)
 
 
 @click.command()
+@click.argument("targets_file", type=click.File("r"))
 @click.option("--verbose", default=False, is_flag=True, help="print debug information while running")
 @click.option("--nprocs", default=1, type=int, help="number of processes to use for copying")
-@click.argument("targets_file", type=click.File("r"))
-def main(verbose, nprocs, targets_file):
+def main(targets_file, verbose, nprocs):
     """Tranfer data from source to destination as described in a yaml TARGETS_FILE. Uses low priority io to allow
     data to be moved while the microscope is acquiring. The program is zarr-aware and can safely copy an archive
     before it is finished being written to."""
 
     log_level = logging.INFO if not verbose else logging.DEBUG
-    LOG.setLevel(log_level)
+    LOG.setLevel(logging.DEBUG)
     logging.basicConfig(format="[%(asctime)s : %(levelname)s from %(name)s] " + BOLD_SEQ + "%(message)s" + RESET_SEQ)
 
     # Load the yaml at a normal io priority because it is small and likely not on

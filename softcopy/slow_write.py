@@ -4,16 +4,17 @@ between each write. This is useful for testing the ability of the main program t
 written to.
 """
 
-import json
 import sys
 import time
 from pathlib import Path
 
 import click
+import numpy as np
 import psutil
 import tensorstore as ts
 
 from . import zarr_utils
+
 
 @click.command()
 @click.argument("source", type=click.Path(exists=True, file_okay=True, dir_okay=True, path_type=Path))
@@ -34,21 +35,51 @@ def main(source, destination, method, sleep, timepoints):
     }).result()
 
     # Load the data into memory
-    data = dataset.read().result()
+    data: np.ndarray = dataset.read().result()
     print(f"Data loaded into memory ({data.nbytes / 1e9:.2f}GB)")
 
-    if method == "v2":
-        dataset = write_v2(destination, data, timepoints)
-    elif method == "v3":
-        dataset = write_v3(destination, data, timepoints)
-    elif method == "v3_shard":
-        dataset = write_v3_shard(destination, data, timepoints)
+    if data.size == 0:
+        raise ValueError("Input data is empty")
+
+    # If the data is 4 dimensional infer (CZYX), expand it to 5 dimensions (TCZYX). We use 5D for ome zarr
+    # compatibility
+    if data.ndim == 4:
+        data.expand_dims(0)
+
+    if data.ndim != 5:
+        raise ValueError("Input data must be 4 or 5 dimensional.")
+
+    # We want a good number of chunks so that we can test the ability of softcopy to copy data.
+    # Let's make `1000 * timepoints`` files, if we can, by starting with the files_nd and computing
+    # chunks - note that we ignore the first dimension because we do weird modular stuff, but know
+    # that we will guarantee that target_files_nd[0] == timepoints later on in the way we write
+    target_files_nd = np.array([1, 10, 10, 10])
+    # files_nd = shape // chunks
+    # chunks = shape // files_nd
+    chunks = np.ones_like(data.shape, dtype=np.uint32)
+    # We know that data.shape[i] > 0 for all i because data.size > 0 from earlier. Thus data.shape[i] / target_files_nd[i] > 0,
+    # so ceil will always yield a nonzero positive integer. Thus we always have a valid chunk size.
+    chunks[1:] = np.ceil(data.shape[1:] / target_files_nd)
+    # Let's compute the actual number of files we will write - if the number of files is radically less than our
+    # target of 1000 * timepoints, we will warn the user:
+    num_files = np.prod(data.shape[1:] // chunks[1:])
+    if num_files / np.prod(target_files_nd) < 0.1:
+        print(f"Warning: the number of files being written is very low ({num_files} / timepoint). In real acquisitions, softcopy moves much more data than this, and so this may not be a good test of its performance.")
+
+    preparation_methods = {
+        "v2": prepare_zarr_v2,
+        "v3": prepare_zarr_v3,
+        "v3_shard": prepare_zarr_v3_shard
+    }
+
+    prepare_zarr = preparation_methods[method]
+    dataset = prepare_zarr(destination, data, timepoints, chunks)
 
     for t in range(timepoints):
         print()
         print(f"Writing stack {t + 1}/{timepoints}")
         now = time.time()
-        dataset[t].write(data).result()
+        dataset[t].write(data[t % data.shape[0]]).result()
         print(f"Wrote stack {t + 1}/{timepoints} in {time.time() - now:.2f}s")
         time.sleep(sleep)
 
@@ -57,7 +88,7 @@ def main(source, destination, method, sleep, timepoints):
     (Path(destination) / "complete").touch()
 
 
-def write_v2(destination, data, timepoints):
+def prepare_zarr_v2(destination, data, timepoints, chunks):
     # Write the data to the destination, one stack at a time
     dataset = ts.open({
         "driver": "zarr",
@@ -72,9 +103,9 @@ def write_v2(destination, data, timepoints):
                 "shuffle": 1,
                 "clevel": 3,
             },
-            "dtype": "<u2",
-            "shape": [timepoints, *data.shape],
-            "chunks": [1, 200, 200, 200, 200],
+            "dtype": zarr_utils.dtype_string_zarr2(data.dtype),
+            "shape": [timepoints, *data.shape[1:]],
+            "chunks": chunks,
         },
         "create": True,
         "delete_existing": True,
@@ -83,7 +114,7 @@ def write_v2(destination, data, timepoints):
     return dataset
 
 
-def write_v3(destination, data, timepoints):
+def prepare_zarr_v3(destination, data, timepoints, chunks):
     codecs = ts.CodecSpec({
         "codecs": [
             {"name": "bytes", "configuration": {"endian": "little"}},
@@ -107,13 +138,13 @@ def write_v3(destination, data, timepoints):
                 "path": destination,
             },
             "metadata": {
-                "shape": [timepoints, *data.shape],
+                "shape": [timepoints, *data.shape[1:]],
                 "chunk_grid": {
                     "name": "regular",
-                    "configuration": {"chunk_shape": [1, 100, 100, 100, 100]},
+                    "configuration": {"chunk_shape": chunks},
                 },
                 "chunk_key_encoding": {"name": "default"},
-                "data_type": "uint16",
+                "data_type": data.dtype.name,
             },
             "create": True,
             "delete_existing": True,
@@ -124,14 +155,14 @@ def write_v3(destination, data, timepoints):
     return dataset
 
 
-def write_v3_shard(destination, data, timepoints):
+def prepare_zarr_v3_shard(destination, data, timepoints, chunks):
     codecs = ts.CodecSpec({
         "driver": "zarr3",
         "codecs": [
             {
                 "name": "sharding_indexed",
                 "configuration": {
-                    "chunk_shape": [1, 100, 100, 100, 100],
+                    "chunk_shape": 2 * chunks,
                     "codecs": [
                         {"name": "bytes", "configuration": {"endian": "little"}},
                         {
@@ -161,13 +192,13 @@ def write_v3_shard(destination, data, timepoints):
                 "path": destination,
             },
             "metadata": {
-                "shape": [timepoints, *data.shape],
+                "shape": [timepoints, *data.shape[1:]],
                 "chunk_grid": {
                     "name": "regular",
-                    "configuration": {"chunk_shape": [1, 200, 600, 600]},
+                    "configuration": {"chunk_shape": chunks},
                 },
                 "chunk_key_encoding": {"name": "default"},
-                "data_type": "uint16",
+                "data_type": data.dtype.name,
             },
             "create": True,
             "delete_existing": True,

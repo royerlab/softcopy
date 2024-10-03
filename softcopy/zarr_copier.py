@@ -26,7 +26,9 @@ class ZarrCopier:
     _queue: Queue
     _observer: Observer
     _stop = Value('b', 0) # Can't use a boolean explicitly - this is 0 / 1 for False / True. True if we want to immediately, forcefully terminate the copy!!!
-    _observation_finished: bool = Value('b', 0) # Same as above. True if the queue will never have more items added to it
+    # TODO: I think observation_finished lives in one process now, so we can use a normal bool if we want to
+    _observation_finished: bool = Value('b', 0) # Same as above. True if the observer has finished (even so, the queue may have more files added by the integrity check step)
+    _queue_draining = Value('b', 0) # This is set to true as a signal that the queue will never have new items added to it.
     _copy_procs: list[Process]
     _n_copy_procs: int
     _zarr_version: int
@@ -72,7 +74,7 @@ class ZarrCopier:
 
         self._log.debug("Starting copy processes.")
         for _ in range(self._n_copy_procs):
-            proc = Process(target=_copy_worker, args=(self._queue, self._stop, self._observation_finished, self._files_nd, self._source, self._destination, self._copy_count))
+            proc = Process(target=_copy_worker, args=(self._queue, self._stop, self._queue_draining, self._files_nd, self._source, self._destination, self._copy_count))
             proc.start()
             self._copy_procs.append(proc)
 
@@ -160,6 +162,10 @@ class ZarrCopier:
         else:
             self._log.debug(f"Final integrity check complete. {missed_count} files were missed ({100 * missed_fraction:.1f}%), but will be copied now.")
             self._log.debug("Waiting for files to be copied.")
+        
+        # We are now done adding files to the queue. This signals to the worker processes that, if the queue is empty,
+        # they can safely stop running.
+        self._queue_draining.value = 1
 
         for proc in self._copy_procs:
             proc.join()
@@ -221,7 +227,7 @@ class ZarrCopier:
             log.critical(f"Unsupported zarr version {zarr_version}")
             exit(1)
 
-def _copy_worker(queue: Queue, stop: Value, observation_finished: Value, files_nd: np.ndarray, source: Path, destination: Path, count: Value):
+def _copy_worker(queue: Queue, stop: Value, queue_draining: Value, files_nd: np.ndarray, source: Path, destination: Path, count: Value):
     while stop.value == 0:
         try:
             data = queue.get(timeout=1)
@@ -235,10 +241,10 @@ def _copy_worker(queue: Queue, stop: Value, observation_finished: Value, files_n
                 with count.get_lock():
                     count.value += 1
         except Empty:
-            # If we didn't get anything from the queue, and the observation is finished, we can stop
+            # If we didn't get anything from the queue, and the queue is finished being added to, we can stop
             # this copy thread. We only check if the queue is empty to be sure that the timeout wasn't
             # a due to some other issue, although a 1s timeout is extremely unlikely if the queue is nonempty.
-            if observation_finished.value == 1 and queue.empty():
+            if queue_draining.value == 1 and queue.empty():
                 break
 
 def pack_name(name: str, zarr_version: int, files_nd: np.ndarray):
