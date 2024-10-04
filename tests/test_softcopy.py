@@ -135,7 +135,7 @@ def test_slow_write_and_softcopy_ome_zarr(workspace, dummy_zarr_path, create_zar
     # Modify daxi.json via daxi.json.temp and shutil.move
     daxi_json_temp = input_path / "daxi.json.temp"
     daxi_json = input_path / "daxi.json"
-    daxi_json_temp.write_text("daxi.json.temp")
+    daxi_json_temp.write_text("daxi.json")
     shutil.move(daxi_json_temp, daxi_json)
 
     # Create the complete file to signal that the write is done
@@ -159,7 +159,7 @@ def test_slow_write_and_softcopy_ome_zarr(workspace, dummy_zarr_path, create_zar
 
     copied_dataset = ts.open({
         "driver": "zarr",
-        "kvstore": {"driver": "file", "path": str(output_path)},
+        "kvstore": {"driver": "file", "path": str(output_path / "0")},
     }).result()
 
     assert np.all(np.equal(slow_write_output[:].read().result(), copied_dataset[:].read().result()))

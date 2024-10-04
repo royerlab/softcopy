@@ -6,7 +6,9 @@ import click
 import psutil
 import yaml
 
+from .copier import AbstractCopier
 from .zarr_copier import ZarrCopier
+from .ome_zarr_copier import OMEZarrCopier
 
 BOLD_SEQ = "\033[1m"
 RESET_SEQ = "\033[0m"
@@ -23,7 +25,7 @@ def main(targets_file, verbose, nprocs):
     before it is finished being written to."""
 
     log_level = logging.INFO if not verbose else logging.DEBUG
-    LOG.setLevel(logging.DEBUG)
+    LOG.setLevel(log_level)
     logging.basicConfig(format="[%(asctime)s : %(levelname)s from %(name)s] " + BOLD_SEQ + "%(message)s" + RESET_SEQ)
 
     # Load the yaml at a normal io priority because it is small and likely not on
@@ -36,7 +38,7 @@ def main(targets_file, verbose, nprocs):
     # at the wrong time could slow down the writer process!
     ensure_low_io_priority()
 
-    copiers = []
+    copiers: list[AbstractCopier] = []
 
     # TODO: actually run the copiers in parallel
 
@@ -45,13 +47,14 @@ def main(targets_file, verbose, nprocs):
             source = Path(target["source"]).expanduser().absolute()
             destination = Path(target["destination"]).expanduser().absolute()
             # If the source ends with .ome.zarr, then infer ome mode for this entry:
-            
             is_ome = source.name.endswith(".ome.zarr")
-            zarr_store_path = (source / "0") if is_ome else source
-            
-            copier = ZarrCopier(zarr_store_path, destination, nprocs, LOG.getChild(f"Target {target_id}"))
+            copier_type = OMEZarrCopier if is_ome else ZarrCopier
+            copier = copier_type(source, destination, nprocs, LOG.getChild(f"Target {target_id}"))
             copiers.append(copier)
             copier.start()
+
+        # Wait for all copiers to finish
+        for copier in copiers:
             copier.join()
     except KeyboardInterrupt:
         LOG.info("Keyboard interrupt recieved, stopping all copiers")
