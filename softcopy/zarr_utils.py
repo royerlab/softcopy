@@ -14,7 +14,7 @@ METADATA_FILES_BY_VERSION = {
 ALL_METADATA_FILES = set(functools.reduce(operator.iadd, METADATA_FILES_BY_VERSION.values(), []))
 KNOWN_VERSIONS = set(METADATA_FILES_BY_VERSION.keys())
 
-def identify_zarr_version(archive_path: Path, log: Logger = LOG) -> Optional[Literal[2, 3]]:
+def identify_zarr_format(archive_path: Path, log: Logger = LOG) -> Optional[Literal[2, 3]]:
     """
     Identify the zarr version of the archive by identifying a metadata file and reading its zarr_format key.
     If the metadata file is missing, the zarr_format key is missing, or the specified version is not "2" or "3",
