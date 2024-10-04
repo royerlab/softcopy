@@ -25,7 +25,7 @@ def main(targets_file, verbose, nprocs):
     before it is finished being written to."""
 
     log_level = logging.INFO if not verbose else logging.DEBUG
-    LOG.setLevel(logging.DEBUG)#log_level)
+    LOG.setLevel(log_level)
     logging.basicConfig(format="[%(asctime)s : %(levelname)s from %(name)s] " + BOLD_SEQ + "%(message)s" + RESET_SEQ)
 
     # Load the yaml at a normal io priority because it is small and likely not on
