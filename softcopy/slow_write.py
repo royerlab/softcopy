@@ -22,7 +22,8 @@ from . import zarr_utils
 @click.option("--method", type=click.Choice(["v2", "v3", "v3_shard"]), default="v3")
 @click.option("--sleep", type=float, default=1.0)
 @click.option("--timepoints", type=int, default=3)
-def main(source, destination, method, sleep, timepoints):
+@click.option("--no-complete-file", is_flag=True, help="Disable using a file called 'complete' to signal that the write is done", default=False)
+def main(source, destination, method, sleep, timepoints, no_complete_file):
     ensure_high_io_priority()
 
     zarr_version = zarr_utils.identify_zarr_version(source)
@@ -83,6 +84,9 @@ def main(source, destination, method, sleep, timepoints):
         print(f"Wrote stack {t + 1}/{timepoints} in {time.time() - now:.2f}s")
         time.sleep(sleep)
 
+    if no_complete_file:
+        return
+    
     # touch an empty file called "complete" to signal that the write is done to other processes
     print("writing complete file")
     (Path(destination) / "complete").touch()

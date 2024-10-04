@@ -16,11 +16,12 @@ from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileMovedEvent, 
 from watchdog.observers import Observer
 
 from . import zarr_utils
+from .copier import AbstractCopier
 
 LOG = logging.getLogger(__name__)
 
 
-class ZarrCopier:
+class ZarrCopier(AbstractCopier):
     _source: Path
     _destination: Path
     _queue: Queue
@@ -40,10 +41,12 @@ class ZarrCopier:
     _zarr_version: int
     _copy_count = Value("i", 0)  # The number of files that have been copied so far
 
-    def __init__(self, source: Path, destination: Path, nprocs: int = 1, log: Logger = LOG):
-        self._source = source
-        self._destination = destination
-        self._log = log
+    def __init__(self, source: Path, destination: Path, n_copy_procs: int = 1, log: Logger = LOG):
+        super().__init__(source, destination, n_copy_procs, log)
+        # self._source = source
+        # self._destination = destination
+        # self._log = log
+        # self._n_copy_procs = nprocs
 
         self._zarr_version = zarr_utils.identify_zarr_version(source, log)
         if self._zarr_version is None:
@@ -73,7 +76,6 @@ class ZarrCopier:
             self._zarr_version, self._files_nd, self._observation_finished, self._queue, self._log
         )
         self._observer.schedule(event_handler, source, recursive=True)
-        self._n_copy_procs = nprocs
         self._copy_procs = []
 
     def start(self):
