@@ -14,7 +14,7 @@ def test_zarr_copier(workspace, dummy_zarr_path):
     shape = [100, 100]
     chunks = [10, 10]
 
-    zarr_json = {"zarr_format": 2, "shape": shape, "chunks": chunks}
+    zarr_json = {"zarr_format": 2, "shape": shape, "chunks": chunks, "dimension_separator": "."}
     (dummy_zarr_path / ".zarray").write_text(json.dumps(zarr_json))
 
     copier = ZarrCopier(dummy_zarr_path, destination, n_copy_procs=1)

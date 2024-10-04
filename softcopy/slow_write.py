@@ -26,12 +26,12 @@ from . import zarr_utils
 def main(source, destination, method, sleep, timepoints, no_complete_file):
     ensure_high_io_priority()
 
-    zarr_version = zarr_utils.identify_zarr_version(source)
-    if zarr_version is None:
+    zarr_format = zarr_utils.identify_zarr_format(source)
+    if zarr_format is None:
         raise ValueError(f"Could not find zarr metadata file in archive folder {source}")
 
     dataset = ts.open({
-        "driver": "zarr" if zarr_version == 2 else "zarr3",
+        "driver": "zarr" if zarr_format == 2 else "zarr3",
         "kvstore": {"driver": "file", "path": str(source)},
     }).result()
 

@@ -99,7 +99,7 @@ def main(source, daxi_metadata, run, resume, remove_dim, partial):
     import logging
 
     logging.basicConfig(level=logging.DEBUG)
-    if zarr_utils.identify_zarr_version(source) != 2:
+    if zarr_utils.identify_zarr_format(source) != 2:
         raise ValueError("This script only supports zarr 2 archives.")
 
     # As a dry run, we just print the move commands instead of executing them.
@@ -117,7 +117,7 @@ def main(source, daxi_metadata, run, resume, remove_dim, partial):
         zarr_json = json.load(zarr_json_file)
         shape = np.array(zarr_json["shape"])
 
-        # elif zarr_version == 3:
+        # elif zarr_format == 3:
         #     chunks = np.array(zarr_json['chunk_grid']['configuration']['chunk_shape'])
 
         # Lots of error handling is needed for different edge cases about the shape

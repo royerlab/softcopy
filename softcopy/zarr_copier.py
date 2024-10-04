@@ -9,7 +9,8 @@ from multiprocessing import Process, Queue, Value
 from pathlib import Path
 from queue import Empty
 from shutil import copyfile
-from typing import Optional
+from typing import Literal, Optional
+from contextlib import suppress
 
 import numpy as np
 from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileMovedEvent, FileSystemEventHandler
@@ -17,6 +18,7 @@ from watchdog.observers import Observer
 
 from . import zarr_utils
 from .copier import AbstractCopier
+from .packed_name import PackedName
 
 LOG = logging.getLogger(__name__)
 
@@ -38,7 +40,8 @@ class ZarrCopier(AbstractCopier):
     )  # This is set to true as a signal that the queue will never have new items added to it.
     _copy_procs: list[Process]
     _n_copy_procs: int
-    _zarr_version: int
+    _zarr_format: int
+    _dimension_separator: Literal[".", "/"]
     _copy_count = Value("i", 0)  # The number of files that have been copied so far
 
     def __init__(self, source: Path, destination: Path, n_copy_procs: int = 1, log: Logger = LOG):
@@ -48,23 +51,40 @@ class ZarrCopier(AbstractCopier):
         # self._log = log
         # self._n_copy_procs = nprocs
 
-        self._zarr_version = zarr_utils.identify_zarr_version(source, log)
-        if self._zarr_version is None:
+        self._zarr_format = zarr_utils.identify_zarr_format(source, log)
+        if self._zarr_format is None:
             log.critical(f"Could not identify zarr version of source {source}.")
             exit(1)
 
-        zarr_json_path = source / ("zarr.json" if self._zarr_version == 3 else ".zarray")
+        zarr_json_path = source / ("zarr.json" if self._zarr_format == 3 else ".zarray")
 
         # Compute the number of files in the zarr archive using shape and chunk size
         # files_nd = shape / chunk_size (ignores shard chunk size - those are all internal to a file)
         with open(zarr_json_path.expanduser()) as zarr_json_file:
             zarr_json = json.load(zarr_json_file)
-            self._zarr_version = zarr_json["zarr_format"]
+            self._zarr_format = zarr_json["zarr_format"]
             shape = np.array(zarr_json["shape"])
-            if self._zarr_version == 2:
+            if self._zarr_format == 2:
                 chunks = np.array(zarr_json["chunks"])
-            elif self._zarr_version == 3:
+                self._dimension_separator = zarr_json["dimension_separator"]
+                self._log.debug(f"Dimension separator: {self._dimension_separator}")
+                if self._dimension_separator in (None, ""):
+                    log.critical(f"Could not determine dimension separator from zarr.json file {zarr_json_path}: {repr(self._dimension_separator)}")
+                    exit(1)
+            elif self._zarr_format == 3:
                 chunks = np.array(zarr_json["chunk_grid"]["configuration"]["chunk_shape"])
+
+                # This is convoluted but defined by the zarr json spec
+                cke = zarr_json["chunk_key_encoding"]
+                self._dimension_separator = cke.get("configuration", {}).get("separator")
+                if self._dimension_separator is None:
+                    if cke["name"] == "default":
+                        self._dimension_separator = "/"
+                    elif cke["name"] == "v2":
+                        self._dimension_separator = "."
+                    else:
+                        log.critical(f"Unsupported chunk key encoding {cke['name']}")
+                        exit(1)
 
             self._files_nd = np.ceil(shape / chunks).astype(int)
             log.debug(f"Shape: {shape}, chunks: {chunks}, files_nd: {self._files_nd}")
@@ -73,14 +93,14 @@ class ZarrCopier(AbstractCopier):
         self._queue = Queue()
         self._observer = Observer()
         event_handler = ZarrFileEventHandler(
-            self._zarr_version, self._files_nd, self._observation_finished, self._queue, self._log
+            self._zarr_format, self._dimension_separator, self._files_nd, self._observation_finished, self._queue, self._log
         )
         self._observer.schedule(event_handler, source, recursive=True)
         self._copy_procs = []
 
     def start(self):
         self._log.debug("Creating zarr folder structure in destination.")
-        ZarrCopier.create_zarr_folder_structure(self._destination, self._zarr_version, self._files_nd, self._log)
+        ZarrCopier.create_zarr_folder_structure(self._destination, self._zarr_format, self._files_nd, self._log)
 
         self._log.debug("Starting copy processes.")
         for _ in range(self._n_copy_procs):
@@ -93,6 +113,8 @@ class ZarrCopier(AbstractCopier):
                     self._files_nd,
                     self._source,
                     self._destination,
+                    self._dimension_separator,
+                    self._zarr_format,
                     self._copy_count,
                 ),
             )
@@ -167,19 +189,14 @@ class ZarrCopier(AbstractCopier):
         # Perform a final integrity check. The watcher can miss files, so we need to check that all files are copied
         missed_count = 0
         for chunk_index in range(np.prod(self._files_nd)):
-            if self._zarr_version == 2:
-                filename = ".".join(map(str, np.unravel_index(chunk_index, self._files_nd)))
-                if not (self._destination / filename).exists():
-                    self._queue.put(pack_name(filename, self._zarr_version, self._files_nd))
-                    self._log.debug(f"File {filename} was missed by the observer! Adding to queue for retry.")
-                    missed_count += 1
-            elif self._zarr_version == 3:
-                chunk_index_nd = np.unravel_index(chunk_index, self._files_nd)
-                filename = Path("c") / Path(*map(str, chunk_index_nd))
-                if not (self._destination / filename).exists():
-                    self._queue.put(pack_name(filename, self._zarr_version, self._files_nd))
-                    self._log.debug(f"File {filename} was missed by the observer! Adding to queue for retry.")
-                    missed_count += 1
+            chunk_packed_name: PackedName = PackedName.from_index(chunk_index)
+            chunk_path = chunk_packed_name.get_path(self._files_nd, self._destination, self._dimension_separator, self._zarr_format)
+
+            if not chunk_path.exists():
+                self._log.debug(f"File {chunk_path} was missed by the observer! Adding to queue for retry.")
+                self._queue.put(chunk_packed_name)
+                missed_count += 1
+
         missed_fraction = missed_count / np.prod(self._files_nd)
 
         if missed_count == 0:
@@ -209,8 +226,8 @@ class ZarrCopier(AbstractCopier):
                     found_lockfiles = True
                     continue
                 rel_dir = os.path.relpath(dir, self._source)
-                packed_name = pack_name(os.path.join(rel_dir, file), self._zarr_version, self._files_nd)
-                if packed_name._index is not None:
+                packed_name = PackedName(os.path.join(rel_dir, file), self._files_nd, self._dimension_separator, self._zarr_format)
+                if packed_name.is_zarr_chunk():
                     chunk_count += 1
                 if Path(file).stem == "complete":
                     is_complete = True
@@ -239,12 +256,12 @@ class ZarrCopier(AbstractCopier):
 
         return write_seems_finished
 
-    def create_zarr_folder_structure(zarr_archive_location, zarr_version, files_nd, log: Logger = LOG):
-        if zarr_version == 2:
+    def create_zarr_folder_structure(zarr_archive_location, zarr_format, files_nd, log: Logger = LOG):
+        if zarr_format == 2:
             # Zarr 2 has no nested folder structure. Just a top level folder full of files :)
             zarr_archive_location.mkdir(parents=True, exist_ok=True)
             log.info(f"Created zarr archive folder at {zarr_archive_location}")
-        elif zarr_version == 3:
+        elif zarr_format == 3:
             # Zarr 3 has a nested folder structure where file `c/1/2/3/4` corresponds to the chunk
             # indexed at (1, 2, 3, 4). There is likely a much smarter way to implement this rather
             # than mkdir p on every leaf folder, but this operation should not be happening on a write congested
@@ -255,7 +272,7 @@ class ZarrCopier(AbstractCopier):
                 terminal_folder.mkdir(parents=True, exist_ok=True)
             log.info(f"Created zarr 3 archive skeleton at {zarr_archive_location}")
         else:
-            log.critical(f"Unsupported zarr version {zarr_version}")
+            log.critical(f"Unsupported zarr version {zarr_format}")
             exit(1)
 
 
@@ -266,13 +283,16 @@ def _copy_worker(
     files_nd: np.ndarray,
     source: Path,
     destination: Path,
+    dimension_separator: Literal[".", "/"],
+    zarr_format: Literal[2, 3],
     count: Value,
 ):
     while stop.value == 0:
         try:
-            data = queue.get(timeout=1)
-            srcfile = data.get_path(files_nd, source)
-            destfile = data.get_path(files_nd, destination)
+            data: PackedName = queue.get(timeout=1)
+            srcfile = data.get_path(files_nd, source, dimension_separator, zarr_format)
+            destfile = data.get_path(files_nd, destination, dimension_separator, zarr_format)
+            print(f"Copying {srcfile} to {destfile}")
             # destfile = PackedName3.get_path(data, files_nd, destination)
             copyfile(srcfile, destfile)
 
@@ -287,101 +307,13 @@ def _copy_worker(
             if queue_draining.value == 1 and queue.empty():
                 break
 
-
-def pack_name(name: str, zarr_version: int, files_nd: np.ndarray):
-    if zarr_version == 2:
-        return PackedName2(name, files_nd)
-    else:
-        return PackedName3(name, files_nd)
-
-
-class PackedName2:
-    """
-    A compressed path data type for data sets where most files are zarr 2 chunks. Rather than storing the long
-    filepath to the chunk, a single ravelled integer index is stored when possible.
-    """
-
-    _path: Optional[Path] = None
-    _index: Optional[int] = None
-
-    def __init__(self, name: str, files_nd: np.ndarray):
-        path = Path(name)
-        parts = path.name.split(".")
-        if len(parts) == files_nd.size:
-            try:
-                chunk_index_nd = list(map(int, parts))
-                self._index = np.ravel_multi_index(chunk_index_nd, files_nd)
-                return
-            except ValueError:
-                pass
-
-        self._path = path
-
-    def get_path(self, files_nd: np.ndarray, zarr_location: Path):
-        if self._path is not None:
-            return zarr_location / self._path
-        elif self._index is not None:
-            chunk_index_nd = np.unravel_index(self._index, files_nd)
-            return zarr_location / ".".join(map(str, chunk_index_nd))
-
-
-class PackedName3:
-    """
-    A compressed path data type for data sets where most files are zarr 3 chunks. Rather than storing the long
-    filepath to the chunk, a single ravelled integer index is stored when possible.
-    """
-
-    _path: Optional[Path] = None
-    _index: Optional[int] = None
-
-    # IMPORTANT: `name` should be the name relative to the source directory. i.e. if the source is
-    # /path/to/source, and you are packing the name /path/to/source/c/0/0/0, you should pass "c/0/0/0".
-    # otherwise, this will break.
-    def __init__(self, name: str, files_nd: np.ndarray):
-        self._path = Path(name)
-        parts = self._path.parts
-
-        # If this is a chunk, it must have path parts that end like c, number, number, ..., number
-        # if there ar fewer parts than expected, short circuit:
-        needed_parts = 1 + files_nd.size
-        if len(parts) < needed_parts:
-            return
-
-        # Crop the parts to the last needed_parts:
-        parts = parts[-needed_parts:]
-
-        # We have the right number of path components. Verify that the first is 'c':
-        if parts[0] != "c":
-            return
-
-        # Verify that all the other parts are integers:
-        try:
-            chunk_index_nd = list(map(int, parts[-files_nd.size :]))
-        except ValueError:
-            return
-
-        # Bounds check the chunk index:
-        if not all(0 <= coord < files_nd[i] for i, coord in enumerate(chunk_index_nd)):
-            return
-
-        # We made it! :) We don't keep the path, we just compress it to an index
-        self._index = np.ravel_multi_index(chunk_index_nd, files_nd)
-        self._path = None
-
-    def get_path(self, files_nd: np.ndarray, zarr_location: Path):
-        if self._path is not None:
-            return zarr_location / self._path
-        elif self._index is not None:
-            chunk_index_nd = np.unravel_index(self._index, files_nd)
-            return zarr_location / "c" / Path(*map(str, chunk_index_nd))
-
-
 class ZarrFileEventHandler(FileSystemEventHandler):
     def __init__(
-        self, zarr_version: int, files_nd: np.ndarray, observation_finished: Value, queue: Queue, log: Logger = LOG
+        self, zarr_format: Literal[2, 3], dimension_separator: Literal[".", "/"], files_nd: np.ndarray, observation_finished: Value, queue: Queue, log: Logger = LOG
     ):
         super().__init__()
-        self.zarr_version = zarr_version
+        self.zarr_format = zarr_format
+        self._dimension_separator = dimension_separator
         self.files_nd = files_nd
         self.observation_finished = observation_finished
         self._log = log
@@ -402,7 +334,7 @@ class ZarrFileEventHandler(FileSystemEventHandler):
             # remove .__lock suffix from right side of path
             lock_index = event.src_path.rfind(".__lock")
             if lock_index != -1:
-                packed_name = pack_name(event.src_path[:lock_index], self.zarr_version, self.files_nd)
+                packed_name = PackedName(event.src_path[:lock_index], self.files_nd, self._dimension_separator, self.zarr_format)
                 if packed_name._index is None:
                     print(f"screwed up: {event.src_path}")
                 self.queue.put(packed_name)
@@ -411,7 +343,7 @@ class ZarrFileEventHandler(FileSystemEventHandler):
         if isinstance(event, FileMovedEvent):
             src = Path(event.src_path)
             if src.suffix == ".__lock":
-                packed_name = pack_name(event.dest_path, self.zarr_version, self.files_nd)
+                packed_name = PackedName(event.dest_path, self.files_nd, self._dimension_separator, self.zarr_format)
                 if packed_name._index is None:
                     print(f"screwed up: {event.src_path} -> {event.dest_path}")
                 self.queue.put(packed_name)
