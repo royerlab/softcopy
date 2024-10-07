@@ -62,6 +62,7 @@ def main(targets_file, verbose, nprocs):
         for copier in copiers:
             copier.stop()
 
+
 def set_low_io_priority():
     try:
         if sys.platform == "linux":

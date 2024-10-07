@@ -69,7 +69,9 @@ class ZarrCopier(AbstractCopier):
                 self._dimension_separator = zarr_json["dimension_separator"]
                 self._log.debug(f"Dimension separator: {self._dimension_separator}")
                 if self._dimension_separator in (None, ""):
-                    log.critical(f"Could not determine dimension separator from zarr.json file {zarr_json_path}: {self._dimension_separator!r}")
+                    log.critical(
+                        f"Could not determine dimension separator from zarr.json file {zarr_json_path}: {self._dimension_separator!r}"
+                    )
                     exit(1)
             elif self._zarr_format == 3:
                 chunks = np.array(zarr_json["chunk_grid"]["configuration"]["chunk_shape"])
@@ -93,7 +95,12 @@ class ZarrCopier(AbstractCopier):
         self._queue = Queue()
         self._observer = Observer()
         event_handler = ZarrFileEventHandler(
-            self._zarr_format, self._dimension_separator, self._files_nd, self._observation_finished, self._queue, self._log
+            self._zarr_format,
+            self._dimension_separator,
+            self._files_nd,
+            self._observation_finished,
+            self._queue,
+            self._log,
         )
         self._observer.schedule(event_handler, source, recursive=True)
         self._copy_procs = []
@@ -190,7 +197,9 @@ class ZarrCopier(AbstractCopier):
         missed_count = 0
         for chunk_index in range(np.prod(self._files_nd)):
             chunk_packed_name: PackedName = PackedName.from_index(chunk_index)
-            chunk_path = chunk_packed_name.get_path(self._files_nd, self._destination, self._dimension_separator, self._zarr_format)
+            chunk_path = chunk_packed_name.get_path(
+                self._files_nd, self._destination, self._dimension_separator, self._zarr_format
+            )
 
             if not chunk_path.exists():
                 self._log.debug(f"File {chunk_path} was missed by the observer! Adding to queue for retry.")
@@ -232,7 +241,9 @@ class ZarrCopier(AbstractCopier):
                 # and then pack the name
                 relative_dir_path = os.path.relpath(dir_path, self._source)
                 relative_filepath = os.path.join(relative_dir_path, file)
-                packed_name = PackedName(relative_filepath, self._files_nd, self._dimension_separator, self._zarr_format)
+                packed_name = PackedName(
+                    relative_filepath, self._files_nd, self._dimension_separator, self._zarr_format
+                )
                 if packed_name.is_zarr_chunk():
                     chunk_count += 1
                 if Path(file).stem == "complete":
@@ -313,9 +324,16 @@ def _copy_worker(
             if queue_draining.value == 1 and queue.empty():
                 break
 
+
 class ZarrFileEventHandler(FileSystemEventHandler):
     def __init__(
-        self, zarr_format: Literal[2, 3], dimension_separator: Literal[".", "/"], files_nd: np.ndarray, observation_finished: Synchronized, queue: Queue, log: Logger = LOG
+        self,
+        zarr_format: Literal[2, 3],
+        dimension_separator: Literal[".", "/"],
+        files_nd: np.ndarray,
+        observation_finished: Synchronized,
+        queue: Queue,
+        log: Logger = LOG,
     ):
         super().__init__()
         self.zarr_format = zarr_format
@@ -326,10 +344,10 @@ class ZarrFileEventHandler(FileSystemEventHandler):
         self.queue = queue
 
     def on_created(self, event: FileCreatedEvent):
-        if isinstance(event, FileCreatedEvent): # noqa: SIM102
+        if isinstance(event, FileCreatedEvent):  # noqa: SIM102
             # This is probably pointless, but I am worried about path parsing overhead given how many file transactions
             # can occur - so only parse the path if we know the filepath ends with "complete"
-            if event.src_path.endswith("complete"): # noqa: SIM102
+            if event.src_path.endswith("complete"):  # noqa: SIM102
                 if Path(event.src_path).stem == "complete":
                     self._log.info("Detected 'complete' file. Stopping observer.")
                     with self.observation_finished.get_lock():
@@ -340,7 +358,9 @@ class ZarrFileEventHandler(FileSystemEventHandler):
             # remove .__lock suffix from right side of path
             lock_index = event.src_path.rfind(".__lock")
             if lock_index != -1:
-                packed_name = PackedName(event.src_path[:lock_index], self.files_nd, self._dimension_separator, self.zarr_format)
+                packed_name = PackedName(
+                    event.src_path[:lock_index], self.files_nd, self._dimension_separator, self.zarr_format
+                )
                 if packed_name._index is None:
                     print(f"screwed up: {event.src_path}")
                 self.queue.put(packed_name)

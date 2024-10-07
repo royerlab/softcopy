@@ -18,14 +18,14 @@ class PackedName:
 
     # __slots__ is a special attribute that tells Python to not use a dict, and only allocate space for a fixed set of
     # attributes. This is a performance optimization which saves memory.
-    __slots__ = ('_path', '_index')
+    __slots__ = ("_path", "_index")
 
     def __init__(self, name: str, files_nd: np.ndarray, dim_separator: Literal["/", "."], zarr_format: Literal[2, 3]):
         if dim_separator == "/":
             parts = name.split("/")
         else:
             last_slash = name.rfind("/")
-            parts = name[last_slash + 1:].split(dim_separator)
+            parts = name[last_slash + 1 :].split(dim_separator)
 
         require_c_prefix = zarr_format == 3
         needed_parts = files_nd.size + (1 if require_c_prefix else 0)
@@ -49,7 +49,7 @@ class PackedName:
         #     parts = parts[-needed_parts:]
 
         try:
-            chunk_index_nd = tuple(int(p) for p in parts[-files_nd.size:])
+            chunk_index_nd = tuple(int(p) for p in parts[-files_nd.size :])
         except ValueError:
             self._path = name
             self._index = None
@@ -73,7 +73,13 @@ class PackedName:
         ret._path = None
         return ret
 
-    def path_from_index(index: int, files_nd: np.ndarray, zarr_location: Path, dim_separator: Literal["/", "."], zarr_format: Literal[2, 3]) -> Path:
+    def path_from_index(
+        index: int,
+        files_nd: np.ndarray,
+        zarr_location: Path,
+        dim_separator: Literal["/", "."],
+        zarr_format: Literal[2, 3],
+    ) -> Path:
         chunk_index_nd = np.unravel_index(index, files_nd)
         prefixless_chunk_key = dim_separator.join(map(str, chunk_index_nd))
 
@@ -81,7 +87,9 @@ class PackedName:
             return zarr_location / "c" / prefixless_chunk_key
         return zarr_location / prefixless_chunk_key
 
-    def get_path(self, files_nd: np.ndarray, zarr_location: Path, dim_separator: Literal["/", "."], zarr_format: Literal[2, 3]) -> Path:
+    def get_path(
+        self, files_nd: np.ndarray, zarr_location: Path, dim_separator: Literal["/", "."], zarr_format: Literal[2, 3]
+    ) -> Path:
         if self._path is not None:
             return zarr_location / self._path
         elif self._index is not None:

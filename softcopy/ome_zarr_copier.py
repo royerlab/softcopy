@@ -9,6 +9,7 @@ from .zarr_copier import ZarrCopier
 
 LOG = logging.getLogger(__name__)
 
+
 class OMEZarrCopier(AbstractCopier):
     """
     Wrapper around a ZarrCopier that also copies the metadata files for an OME-Zarr archive.

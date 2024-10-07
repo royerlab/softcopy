@@ -23,7 +23,12 @@ from . import zarr_utils
 @click.option("--method", type=click.Choice(["v2", "v3", "v3_shard"]), default="v3")
 @click.option("--sleep", type=float, default=1.0)
 @click.option("--timepoints", type=int, default=3)
-@click.option("--no-complete-file", is_flag=True, help="Disable using a file called 'complete' to signal that the write is done", default=False)
+@click.option(
+    "--no-complete-file",
+    is_flag=True,
+    help="Disable using a file called 'complete' to signal that the write is done",
+    default=False,
+)
 def main(source, destination, method, sleep, timepoints, no_complete_file):
     ensure_high_io_priority()
 
@@ -66,13 +71,11 @@ def main(source, destination, method, sleep, timepoints, no_complete_file):
     # target of 1000 * timepoints, we will warn the user:
     num_files = np.prod(data.shape[1:] // chunks[1:])
     if num_files / np.prod(target_files_nd) < 0.1:
-        print(f"Warning: the number of files being written is very low ({num_files} / timepoint). In real acquisitions, softcopy moves much more data than this, and so this may not be a good test of its performance.")
+        print(
+            f"Warning: the number of files being written is very low ({num_files} / timepoint). In real acquisitions, softcopy moves much more data than this, and so this may not be a good test of its performance."
+        )
 
-    preparation_methods = {
-        "v2": prepare_zarr_v2,
-        "v3": prepare_zarr_v3,
-        "v3_shard": prepare_zarr_v3_shard
-    }
+    preparation_methods = {"v2": prepare_zarr_v2, "v3": prepare_zarr_v3, "v3_shard": prepare_zarr_v3_shard}
 
     prepare_zarr = preparation_methods[method]
     dataset = prepare_zarr(destination, data, timepoints, chunks)

@@ -14,6 +14,7 @@ METADATA_FILES_BY_VERSION = {
 ALL_METADATA_FILES = set(functools.reduce(operator.iadd, METADATA_FILES_BY_VERSION.values(), []))
 KNOWN_VERSIONS = set(METADATA_FILES_BY_VERSION.keys())
 
+
 def identify_zarr_format(archive_path: Path, log: Logger = LOG) -> Optional[Literal[2, 3]]:
     """
     Identify the zarr version of the archive by identifying a metadata file and reading its zarr_format key.
@@ -37,6 +38,7 @@ def identify_zarr_format(archive_path: Path, log: Logger = LOG) -> Optional[Lite
 
     log.debug(f"Could not identify zarr version from metadata files in archive folder {archive_path}")
     return None
+
 
 def dtype_string_zarr2(dtype):
     endianness = dtype.byteorder

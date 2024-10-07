@@ -21,4 +21,5 @@ def test_full_run(dummy_zarr_path, create_zarr2_archive):
     expected_contents = {".zattrs", ".zgroup", "0"}
     assert top_level_contents == expected_contents
 
+
 # TODO: test for / dimension separator input, remove dim

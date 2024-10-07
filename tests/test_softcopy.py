@@ -14,11 +14,19 @@ import softcopy.slow_write
 
 
 def run_slow_write(dummy_path: Path, input_path: Path, no_complete_file: bool = False):
-    softcopy.slow_write.main([str(dummy_path), str(input_path), "--method", "v2", "--no-complete-file" if no_complete_file else "--"], standalone_mode=False)
+    softcopy.slow_write.main(
+        [str(dummy_path), str(input_path), "--method", "v2", "--no-complete-file" if no_complete_file else "--"],
+        standalone_mode=False,
+    )
 
 
 def run_softcopy(targets_file_path: Path):
-    softcopy.main.main([str(targets_file_path),], standalone_mode=False)
+    softcopy.main.main(
+        [
+            str(targets_file_path),
+        ],
+        standalone_mode=False,
+    )
 
 
 def create_targets_yaml(targets_file_path: Path, input_path: Path, output_path: Path):
@@ -84,6 +92,7 @@ def test_slow_write_and_softcopy(workspace, dummy_zarr_path, create_zarr2_archiv
     }).result()
 
     assert np.all(np.equal(slow_write_output[:].read().result(), copied_dataset[:].read().result()))
+
 
 # In the tests above, we just test copying a regular zarr archive. However, we also need limited support for ome-zarr FOV data.
 # Specifically, the ome-zarr subset that is written by DaXi. This looks like the following:

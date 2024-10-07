@@ -6,6 +6,7 @@ from softcopy.zarr_copier import ZarrCopier
 
 TEST_DATA = "test data"
 
+
 def test_zarr_copier(workspace, dummy_zarr_path):
     destination = workspace / "destination"
     destination.mkdir()
