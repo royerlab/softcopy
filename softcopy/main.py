@@ -68,7 +68,7 @@ def set_low_io_priority():
         if sys.platform == "linux":
             # On linux, 7 is the highest niceness => lowest io priority. IDLE is the lowest priority
             # class
-            psutil.Process().ionice(psutil.IOPRIO_CLASS_IDLE, 7)
+            psutil.Process().ionice(psutil.IOPRIO_CLASS_IDLE)
         elif sys.platform == "win32":
             # On windows, 0 is "very low" io priority
             psutil.Process().ionice(0)
