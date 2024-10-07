@@ -87,7 +87,7 @@ def main(source, destination, method, sleep, timepoints, no_complete_file):
 
     if no_complete_file:
         return
-    
+
     # touch an empty file called "complete" to signal that the write is done to other processes
     print("writing complete file")
     (Path(destination) / "complete").touch()
@@ -226,7 +226,7 @@ def ensure_high_io_priority():
         else:
             print("Cannot set high io priority on this platform")
     except (PermissionError, AccessDenied):
-        LOG.warning("Could not set high io priority, you may need to run as root to do this")
+        print("Warning: Could not set high io priority, you may need to run as root to do this")
 
 
 if __name__ == "__main__":

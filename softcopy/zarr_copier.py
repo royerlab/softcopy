@@ -6,15 +6,15 @@ import time
 from datetime import timedelta
 from logging import Logger
 from multiprocessing import Process, Queue, Value
+from multiprocessing.sharedctypes import Synchronized
 from pathlib import Path
 from queue import Empty
 from shutil import copyfile
-from typing import Literal, Optional
-from contextlib import suppress
+from typing import Literal
 
 import numpy as np
 from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileMovedEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+from watchdog.observers import Observer, ObserverType
 
 from . import zarr_utils
 from .copier import AbstractCopier
@@ -27,15 +27,15 @@ class ZarrCopier(AbstractCopier):
     _source: Path
     _destination: Path
     _queue: Queue
-    _observer: Observer
+    _observer: ObserverType
     _stop = Value(
         "b", 0
     )  # Can't use a boolean explicitly - this is 0 / 1 for False / True. True if we want to immediately, forcefully terminate the copy!!!
     # TODO: I think observation_finished lives in one process now, so we can use a normal bool if we want to
-    _observation_finished: bool = Value(
+    _observation_finished: Synchronized = Value(
         "b", 0
     )  # Same as above. True if the observer has finished (even so, the queue may have more files added by the integrity check step)
-    _queue_draining = Value(
+    _queue_draining: Synchronized = Value(
         "b", 0
     )  # This is set to true as a signal that the queue will never have new items added to it.
     _copy_procs: list[Process]
@@ -69,7 +69,7 @@ class ZarrCopier(AbstractCopier):
                 self._dimension_separator = zarr_json["dimension_separator"]
                 self._log.debug(f"Dimension separator: {self._dimension_separator}")
                 if self._dimension_separator in (None, ""):
-                    log.critical(f"Could not determine dimension separator from zarr.json file {zarr_json_path}: {repr(self._dimension_separator)}")
+                    log.critical(f"Could not determine dimension separator from zarr.json file {zarr_json_path}: {self._dimension_separator!r}")
                     exit(1)
             elif self._zarr_format == 3:
                 chunks = np.array(zarr_json["chunk_grid"]["configuration"]["chunk_shape"])
@@ -220,13 +220,19 @@ class ZarrCopier(AbstractCopier):
         is_complete = False
         chunk_count = 0
         found_lockfiles = False
-        for dir, _, files in os.walk(self._source):
+        for dir_path, _, files in os.walk(self._source):
             for file in files:
                 if file.endswith(".__lock"):
                     found_lockfiles = True
                     continue
-                rel_dir = os.path.relpath(dir, self._source)
-                packed_name = PackedName(os.path.join(rel_dir, file), self._files_nd, self._dimension_separator, self._zarr_format)
+
+                # PackedName only accepts paths relative to a source zarr archive, but `dir_path` is an absolute path.
+                # We need to convert it to a relative path, then append the file.
+                # i.e. we want to go from dir_path = /source/path/to/chunk/, file = chunkname to `path/to/chunk/chunkname`
+                # and then pack the name
+                relative_dir_path = os.path.relpath(dir_path, self._source)
+                relative_filepath = os.path.join(relative_dir_path, file)
+                packed_name = PackedName(relative_filepath, self._files_nd, self._dimension_separator, self._zarr_format)
                 if packed_name.is_zarr_chunk():
                     chunk_count += 1
                 if Path(file).stem == "complete":
@@ -278,14 +284,14 @@ class ZarrCopier(AbstractCopier):
 
 def _copy_worker(
     queue: Queue,
-    stop: Value,
-    queue_draining: Value,
+    stop: Synchronized,
+    queue_draining: Synchronized,
     files_nd: np.ndarray,
     source: Path,
     destination: Path,
     dimension_separator: Literal[".", "/"],
     zarr_format: Literal[2, 3],
-    count: Value,
+    count: Synchronized,
 ):
     while stop.value == 0:
         try:
@@ -309,7 +315,7 @@ def _copy_worker(
 
 class ZarrFileEventHandler(FileSystemEventHandler):
     def __init__(
-        self, zarr_format: Literal[2, 3], dimension_separator: Literal[".", "/"], files_nd: np.ndarray, observation_finished: Value, queue: Queue, log: Logger = LOG
+        self, zarr_format: Literal[2, 3], dimension_separator: Literal[".", "/"], files_nd: np.ndarray, observation_finished: Synchronized, queue: Queue, log: Logger = LOG
     ):
         super().__init__()
         self.zarr_format = zarr_format
@@ -320,10 +326,10 @@ class ZarrFileEventHandler(FileSystemEventHandler):
         self.queue = queue
 
     def on_created(self, event: FileCreatedEvent):
-        if isinstance(event, FileCreatedEvent):
+        if isinstance(event, FileCreatedEvent): # noqa: SIM102
             # This is probably pointless, but I am worried about path parsing overhead given how many file transactions
             # can occur - so only parse the path if we know the filepath ends with "complete"
-            if event.src_path.endswith("complete"):
+            if event.src_path.endswith("complete"): # noqa: SIM102
                 if Path(event.src_path).stem == "complete":
                     self._log.info("Detected 'complete' file. Stopping observer.")
                     with self.observation_finished.get_lock():

@@ -1,8 +1,8 @@
+import hashlib
 import logging
+import shutil
 from pathlib import Path
 from typing import ClassVar
-import hashlib
-import shutil
 
 from .copier import AbstractCopier
 from .zarr_copier import ZarrCopier

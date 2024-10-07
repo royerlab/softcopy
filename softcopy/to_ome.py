@@ -1,3 +1,7 @@
+# This was a script needed before we had the ability to write directly to ome-zarr - hopefully we won't need it
+# anymore, hence disabled qa.
+# ruff: noqa
+
 """
 A CLI tool to efficiently convert a zarr 2 archive into an ome-zarr 0.4 archive. This is useful internally at biohub,
 as we are trying to pivot our analysis pipelines to ome-zarr but still have legacy zarr 2 data.

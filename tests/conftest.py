@@ -2,8 +2,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import pytest
 import numpy as np
+import pytest
 import tensorstore as ts
 
 from softcopy import zarr_utils

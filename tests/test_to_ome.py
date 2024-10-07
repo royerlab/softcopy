@@ -1,8 +1,4 @@
-import tempfile
-from pathlib import Path
-
 import numpy as np
-import pytest
 
 from softcopy.to_ome import main
 
