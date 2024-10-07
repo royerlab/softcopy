@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -36,7 +37,7 @@ def main(targets_file, verbose, nprocs):
 
     # Now that we have the yaml, we floor our io priority. We are about to read zarr metadata, and even doing that
     # at the wrong time could slow down the writer process!
-    ensure_low_io_priority()
+    set_low_io_priority()
 
     copiers: list[AbstractCopier] = []
 
@@ -61,16 +62,19 @@ def main(targets_file, verbose, nprocs):
         for copier in copiers:
             copier.stop()
 
-def ensure_low_io_priority():
-    if sys.platform == "linux":
-        # On linux, 7 is the highest niceness => lowest io priority. IDLE is the lowest priority
-        # class
-        psutil.Process().ionice(psutil.IOPRIO_CLASS_IDLE, 7)
-    elif sys.platform == "win32":
-        # On windows, 0 is "very low" io priority
-        psutil.Process().ionice(0)
-    else:
-        LOG.warning("Cannot set low io priority on this platform")
+def set_low_io_priority():
+    try:
+        if sys.platform == "linux":
+            # On linux, 7 is the highest niceness => lowest io priority. IDLE is the lowest priority
+            # class
+            psutil.Process().ionice(psutil.IOPRIO_CLASS_IDLE, 7)
+        elif sys.platform == "win32":
+            # On windows, 0 is "very low" io priority
+            psutil.Process().ionice(0)
+        else:
+            LOG.warning("Cannot set low io priority on this platform")
+    except PermissionError:
+        LOG.warning("Could not set low io priority, you may need to run as root to do this")
 
 
 if __name__ == "__main__":
