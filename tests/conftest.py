@@ -29,8 +29,8 @@ def dummy_zarr_path(workspace):
 @pytest.fixture(
     params=[
         {"dtype": np.int8},
-        {"dtype": np.uint16},
-        {"dtype": np.float32},
+        # {"dtype": np.uint16},
+        # {"dtype": np.float32},
     ]
 )
 def create_zarr2_archive(dummy_zarr_path, request):

@@ -1,6 +1,6 @@
+import multiprocessing as mp
 import shutil
 import time
-from multiprocessing import Process
 from pathlib import Path
 
 import numpy as np
@@ -57,7 +57,9 @@ def test_slow_write_and_softcopy(workspace, dummy_zarr_path, create_zarr2_archiv
 
     create_targets_yaml(targets_file_path, input_path, output_path)
 
-    slow_write_process = Process(target=run_slow_write, args=(dummy_zarr_path, input_path))
+    ctx = mp.get_context("spawn")
+    slow_write_process = ctx.Process(target=run_slow_write, args=(dummy_zarr_path, input_path))
+    # use spawn instead:
     slow_write_process.start()
 
     try:
@@ -66,7 +68,7 @@ def test_slow_write_and_softcopy(workspace, dummy_zarr_path, create_zarr2_archiv
         slow_write_process.terminate()
         pytest.fail("slow_write process did not start in time")
 
-    softcopy_process = Process(target=run_softcopy, args=(targets_file_path,))
+    softcopy_process = ctx.Process(target=run_softcopy, args=(targets_file_path,))
     softcopy_process.start()
 
     slow_write_process.join(timeout=120)
@@ -121,7 +123,8 @@ def test_slow_write_and_softcopy_ome_zarr(workspace, dummy_zarr_path, create_zar
 
     create_targets_yaml(targets_file_path, input_path, output_path)
 
-    slow_write_process = Process(target=run_slow_write, args=(dummy_zarr_path, input_path / "0", True))
+    ctx = mp.get_context("spawn")
+    slow_write_process = ctx.Process(target=run_slow_write, args=(dummy_zarr_path, input_path / "0", True))
     slow_write_process.start()
 
     try:
@@ -132,7 +135,7 @@ def test_slow_write_and_softcopy_ome_zarr(workspace, dummy_zarr_path, create_zar
 
     # Start softcopy and disable the complete file so that we can tamper with daxi.json
     # before the write is complete
-    softcopy_process = Process(target=run_softcopy, args=(targets_file_path,))
+    softcopy_process = ctx.Process(target=run_softcopy, args=(targets_file_path,))
     softcopy_process.start()
 
     # Wait for all of the data to be done writing

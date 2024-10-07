@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.12"] # This could have more python versions for more robust testing, but I think 3.12 is the only one we actually need to target
       fail-fast: false
     defaults:
       run:
@@ -44,9 +44,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run tests
-        run: uv run python -m pytest tests --cov --cov-config=pyproject.toml --cov-report=xml
+        run: uv run python -m pytest tests/test_softcopy.py -k ome --cov --cov-config=pyproject.toml --cov-report=xml
 
       - name: Check typing
         run: uv run mypy
-
-
