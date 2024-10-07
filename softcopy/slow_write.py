@@ -12,6 +12,7 @@ import click
 import numpy as np
 import psutil
 import tensorstore as ts
+from psutil import AccessDenied
 
 from . import zarr_utils
 
@@ -214,15 +215,18 @@ def prepare_zarr_v3_shard(destination, data, timepoints, chunks):
 
 
 def ensure_high_io_priority():
-    if sys.platform == "linux":
-        # On linux, 0 is the lowest niceness => highest io priority. RT is the highest priority
-        # class
-        psutil.Process().ionice(psutil.IOPRIO_CLASS_RT, 0)
-    elif sys.platform == "win32":
-        # On windows, 2 is "high" io priority
-        psutil.Process().ionice(2)
-    else:
-        print("Cannot set high io priority on this platform")
+    try:
+        if sys.platform == "linux":
+            # On linux, 0 is the lowest niceness => highest io priority. RT is the highest priority
+            # class
+            psutil.Process().ionice(psutil.IOPRIO_CLASS_RT, 0)
+        elif sys.platform == "win32":
+            # On windows, 2 is "high" io priority
+            psutil.Process().ionice(2)
+        else:
+            print("Cannot set high io priority on this platform")
+    except (PermissionError, AccessDenied):
+        LOG.warning("Could not set high io priority, you may need to run as root to do this")
 
 
 if __name__ == "__main__":

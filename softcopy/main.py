@@ -1,15 +1,15 @@
 import logging
-import os
 import sys
 from pathlib import Path
 
 import click
 import psutil
 import yaml
+from psutil import AccessDenied
 
 from .copier import AbstractCopier
-from .zarr_copier import ZarrCopier
 from .ome_zarr_copier import OMEZarrCopier
+from .zarr_copier import ZarrCopier
 
 BOLD_SEQ = "\033[1m"
 RESET_SEQ = "\033[0m"
@@ -73,7 +73,7 @@ def set_low_io_priority():
             psutil.Process().ionice(0)
         else:
             LOG.warning("Cannot set low io priority on this platform")
-    except PermissionError:
+    except (PermissionError, AccessDenied):
         LOG.warning("Could not set low io priority, you may need to run as root to do this")
 
 
