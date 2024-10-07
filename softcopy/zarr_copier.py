@@ -1,11 +1,11 @@
 import itertools
 import json
 import logging
+import multiprocessing as mp
 import os
 import time
 from datetime import timedelta
 from logging import Logger
-from multiprocessing import Process, Queue, Value
 from multiprocessing.sharedctypes import Synchronized
 from pathlib import Path
 from queue import Empty
@@ -21,6 +21,11 @@ from .copier import AbstractCopier
 from .packed_name import PackedName
 
 LOG = logging.getLogger(__name__)
+
+ctx = mp.get_context("spawn")
+Process = ctx.Process
+Queue = ctx.Queue
+Value = ctx.Value
 
 
 class ZarrCopier(AbstractCopier):
