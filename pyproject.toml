@@ -1,6 +1,6 @@
 [project]
 name = "softcopy"
-version = "0.0.1"
+version = "0.0.2"
 description = "Copies zarr archives from an acquisition frontend to a different disk, using filesystem watching and lockfiles to allow copying during acquisition."
 authors = [{ name = "Seth Hinz", email = "sethhinz@me.com" }]
 readme = "README.md"
@@ -10,6 +10,7 @@ dependencies = [
     "numpy==2.1.1",
     "watchdog>=5.0.3",
     "psutil>=6.0.0",
+    "click>=8.1.7"
 ]
 
 [project.urls]
@@ -103,5 +104,3 @@ ignore = [
 
 [tool.ruff.format]
 preview = true
-
-
