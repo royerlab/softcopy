@@ -439,6 +439,8 @@ dependencies = [
     { name = "click" },
     { name = "numpy" },
     { name = "psutil" },
+    { name = "pyyaml" },
+    { name = "tensorstore" },
     { name = "watchdog" },
 ]
 
@@ -450,7 +452,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
-    { name = "tensorstore" },
     { name = "tox-uv" },
 ]
 
@@ -459,6 +460,8 @@ requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
     { name = "numpy", specifier = "==2.1.1" },
     { name = "psutil", specifier = ">=6.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "tensorstore", specifier = ">=0.1.66" },
     { name = "watchdog", specifier = ">=5.0.3" },
 ]
 
@@ -470,7 +473,6 @@ dev = [
     { name = "pytest", specifier = ">=7.2.0" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "ruff", specifier = ">=0.0.235" },
-    { name = "tensorstore", specifier = ">=0.1.66" },
     { name = "tox-uv", specifier = ">=1.11.3" },
 ]
 
