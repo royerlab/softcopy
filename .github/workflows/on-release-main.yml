@@ -6,7 +6,6 @@ on:
     branches: [main]
 
 jobs:
-
   set-version:
     runs-on: ubuntu-24.04
     steps:
@@ -32,6 +31,9 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
     needs: [set-version]
     steps:
       - name: Check out
@@ -50,6 +52,6 @@ jobs:
 
       - name: Publish package
         run: uvx twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        # env:
+        #   TWINE_USERNAME: __token__
+          # TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
