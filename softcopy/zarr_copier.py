@@ -112,7 +112,9 @@ class ZarrCopier(AbstractCopier):
 
     def start(self):
         self._log.debug("Creating zarr folder structure in destination.")
-        ZarrCopier.create_zarr_folder_structure(self._destination, self._zarr_format, self._files_nd, self._log)
+        ZarrCopier.create_zarr_folder_structure(
+            self._destination, self._zarr_format, self._files_nd, self._dimension_separator, self._log
+        )
 
         self._log.debug("Starting copy processes.")
         for _ in range(self._n_copy_procs):
@@ -278,20 +280,30 @@ class ZarrCopier(AbstractCopier):
 
         return write_seems_finished
 
-    def create_zarr_folder_structure(zarr_archive_location, zarr_format, files_nd, log: Logger = LOG):
+    @staticmethod
+    def create_nd_nested_folders(root_path, files_nd, log: Logger = LOG):
+        for coord in itertools.product(*[range(n) for n in files_nd[:-1]]):
+            terminal_folder = root_path / Path(*map(str, coord))
+            terminal_folder.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def create_zarr_folder_structure(
+        zarr_archive_location, zarr_format, files_nd, dimension_separator, log: Logger = LOG
+    ):
         if zarr_format == 2:
-            # Zarr 2 has no nested folder structure. Just a top level folder full of files :)
+            # . delimited Zarr 2 has no nested folder structure. Just a top level folder full of files :)
             zarr_archive_location.mkdir(parents=True, exist_ok=True)
-            log.info(f"Created zarr archive folder at {zarr_archive_location}")
+            log.info(f"Created zarr2 archive folder at {zarr_archive_location}")
+            if dimension_separator == "/":
+                ZarrCopier.create_nd_nested_folders(zarr_archive_location, files_nd, log)
+                log.info(f"Created nested folder structure for /-delimited Zarr 2 archive in {zarr_archive_location}")
         elif zarr_format == 3:
             # Zarr 3 has a nested folder structure where file `c/1/2/3/4` corresponds to the chunk
             # indexed at (1, 2, 3, 4). There is likely a much smarter way to implement this rather
             # than mkdir p on every leaf folder, but this operation should not be happening on a write congested
             # disk so it's probably fine. (we have to be careful about using the source disk - not the dest
             # disk)
-            for coord in itertools.product(*[range(n) for n in files_nd[:-1]]):
-                terminal_folder = zarr_archive_location / "c" / Path(*map(str, coord))
-                terminal_folder.mkdir(parents=True, exist_ok=True)
+            ZarrCopier.create_nd_nested_folders(zarr_archive_location / "c", files_nd, log)
             log.info(f"Created zarr 3 archive skeleton at {zarr_archive_location}")
         else:
             log.critical(f"Unsupported zarr version {zarr_format}")
@@ -352,11 +364,15 @@ class ZarrFileEventHandler(FileSystemEventHandler):
         if isinstance(event, FileCreatedEvent):  # noqa: SIM102
             # This is probably pointless, but I am worried about path parsing overhead given how many file transactions
             # can occur - so only parse the path if we know the filepath ends with "complete"
-            if event.src_path.endswith("complete"):  # noqa: SIM102
+            if event.src_path.endswith("complete"):
                 if Path(event.src_path).stem == "complete":
                     self._log.info("Detected 'complete' file. Stopping observer.")
                     with self.observation_finished.get_lock():
                         self.observation_finished.value = 1
+                else:
+                    self._log.warning(
+                        f"File {event.src_path} ends with 'complete' but is not a 'complete' file. - has stem {Path(event.src_path).stem}"
+                    )
 
     def on_deleted(self, event):
         if isinstance(event, FileDeletedEvent):
