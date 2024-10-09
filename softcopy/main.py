@@ -20,7 +20,13 @@ LOG = logging.getLogger(__name__)
 @click.argument("targets_file", type=click.File("r"))
 @click.option("--verbose", default=False, is_flag=True, help="print debug information while running")
 @click.option("--nprocs", default=1, type=int, help="number of processes to use for copying")
-def main(targets_file, verbose, nprocs):
+@click.option(
+    "--sleep-time",
+    default=0.0,
+    type=float,
+    help="time to sleep in each copy process between copies. Can help mitigate down an overwhelemd system",
+)
+def main(targets_file, verbose, nprocs, sleep_time):
     """Tranfer data from source to destination as described in a yaml TARGETS_FILE. Uses low priority io to allow
     data to be moved while the microscope is acquiring. The program is zarr-aware and can safely copy an archive
     before it is finished being written to."""
@@ -50,7 +56,7 @@ def main(targets_file, verbose, nprocs):
             # If the source ends with .ome.zarr, then infer ome mode for this entry:
             is_ome = source.name.endswith(".ome.zarr")
             copier_type = OMEZarrCopier if is_ome else ZarrCopier
-            copier = copier_type(source, destination, nprocs, LOG.getChild(f"Target {target_id}"))
+            copier = copier_type(source, destination, nprocs, sleep_time, LOG.getChild(f"Target {target_id}"))
             copiers.append(copier)
             copier.start()
 

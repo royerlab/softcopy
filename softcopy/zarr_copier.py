@@ -45,8 +45,10 @@ class ZarrCopier(AbstractCopier):
     _zarr_format: int
     _dimension_separator: Literal[".", "/"]
 
-    def __init__(self, source: Path, destination: Path, n_copy_procs: int = 1, log: Logger = LOG):
-        super().__init__(source, destination, n_copy_procs, log)
+    def __init__(
+        self, source: Path, destination: Path, n_copy_procs: int = 1, sleep_time: float = 0, log: Logger = LOG
+    ):
+        super().__init__(source, destination, n_copy_procs, sleep_time, log)
 
         self._stop = Value("b", 0)
         self._observation_finished = Value("b", 0)
@@ -129,6 +131,7 @@ class ZarrCopier(AbstractCopier):
                     self._dimension_separator,
                     self._zarr_format,
                     self._copy_count,
+                    self._sleep_time,
                 ),
             )
             proc.start()
@@ -330,13 +333,19 @@ def _copy_worker(
     dimension_separator: Literal[".", "/"],
     zarr_format: Literal[2, 3],
     count: Synchronized,
+    sleep: float = 0,
 ):
+    srcfile = None
+    destfile = None
+
     while stop.value == 0:
         try:
+            time.sleep(sleep)
+            print(sleep)
             data: PackedName = queue.get(timeout=1)
             srcfile = data.get_path(files_nd, source, dimension_separator, zarr_format)
             destfile = data.get_path(files_nd, destination, dimension_separator, zarr_format)
-            print(f"Copying {srcfile} to {destfile}")
+            # print(f"Copying {srcfile} to {destfile}")
 
             # TODO: this is just for on-demand folder creation. it slows things down, so we should
             # make it optional in the targets.yaml
@@ -353,6 +362,12 @@ def _copy_worker(
             # a due to some other issue, although a 1s timeout is extremely unlikely if the queue is nonempty.
             if queue_draining.value == 1 and queue.empty():
                 break
+        except PermissionError:
+            print(
+                f"Permission error while handling copying {srcfile} to {destfile}. This is rare and will be handled in the integrity check."
+            )
+        except Exception as e:
+            print(f"Unknown exception while copying {srcfile} to {destfile}: {e}")
 
 
 class ZarrFileEventHandler(FileSystemEventHandler):
