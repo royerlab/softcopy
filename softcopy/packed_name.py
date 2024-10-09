@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -22,9 +23,9 @@ class PackedName:
 
     def __init__(self, name: str, files_nd: np.ndarray, dim_separator: Literal["/", "."], zarr_format: Literal[2, 3]):
         if dim_separator == "/":
-            parts = name.split("/")
+            parts = name.split(os.sep)
         else:
-            last_slash = name.rfind("/")
+            last_slash = name.rfind(os.sep)
             parts = name[last_slash + 1 :].split(dim_separator)
 
         require_c_prefix = zarr_format == 3
@@ -81,6 +82,8 @@ class PackedName:
         zarr_format: Literal[2, 3],
     ) -> Path:
         chunk_index_nd = np.unravel_index(index, files_nd)
+
+        # We don't need to worry about using `/` here, because on Windows, `Path` will automatically convert `/` to `\`
         prefixless_chunk_key = dim_separator.join(map(str, chunk_index_nd))
 
         if zarr_format == 3:
