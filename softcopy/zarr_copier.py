@@ -112,9 +112,11 @@ class ZarrCopier(AbstractCopier):
 
     def start(self):
         self._log.debug("Creating zarr folder structure in destination.")
-        ZarrCopier.create_zarr_folder_structure(
-            self._destination, self._zarr_format, self._files_nd, self._dimension_separator, self._log
-        )
+        # ZarrCopier.create_zarr_folder_structure(
+        #     self._destination, self._zarr_format, self._files_nd, self._dimension_separator, self._log
+        # )
+        ZarrCopier.create_mandatory_folders(self._destination, self._zarr_format, self._log)
+        self._log.warning("Using WIP on-demand folder creation!")
 
         self._log.debug("Starting copy processes.")
         for _ in range(self._n_copy_procs):
@@ -309,6 +311,17 @@ class ZarrCopier(AbstractCopier):
             log.critical(f"Unsupported zarr version {zarr_format}")
             exit(1)
 
+    @staticmethod
+    def create_mandatory_folders(zarr_archive_location, zarr_format, log: Logger = LOG):
+        """
+        This is used for an on-demand folder creation mode that is under development in softcopy. Not stable, will
+        be reorganized
+        """
+        if zarr_format == 2:
+            zarr_archive_location.mkdir(parents=True, exist_ok=True)
+        else:
+            (zarr_archive_location / "c").mkdir(parents=True, exist_ok=True)
+
 
 def _copy_worker(
     queue: Queue,
@@ -327,7 +340,10 @@ def _copy_worker(
             srcfile = data.get_path(files_nd, source, dimension_separator, zarr_format)
             destfile = data.get_path(files_nd, destination, dimension_separator, zarr_format)
             print(f"Copying {srcfile} to {destfile}")
-            # destfile = PackedName3.get_path(data, files_nd, destination)
+
+            # TODO: this is just for on-demand folder creation. it slows things down, so we should
+            # make it optional in the targets.yaml
+            destfile.parent.mkdir(parents=True, exist_ok=True)
             copyfile(srcfile, destfile)
 
             # Increment the copy count only if this is a data chunk
