@@ -33,28 +33,25 @@ class ZarrCopier(AbstractCopier):
     _destination: Path
     _queue: Queue
     _observer: ObserverType
-    _stop = Value(
-        "b", 0
-    )  # Can't use a boolean explicitly - this is 0 / 1 for False / True. True if we want to immediately, forcefully terminate the copy!!!
+    _stop: Synchronized  # Can't use a boolean explicitly - this is 0 / 1 for False / True. True if we want to immediately, forcefully terminate the copy!!!
     # TODO: I think observation_finished lives in one process now, so we can use a normal bool if we want to
-    _observation_finished: Synchronized = Value(
-        "b", 0
-    )  # Same as above. True if the observer has finished (even so, the queue may have more files added by the integrity check step)
-    _queue_draining: Synchronized = Value(
-        "b", 0
-    )  # This is set to true as a signal that the queue will never have new items added to it.
+    _observation_finished: Synchronized  # Same as above. True if the observer has finished (even so, the queue may have more files added by the integrity check step)
+    _queue_draining: (
+        Synchronized  # This is set to true as a signal that the queue will never have new items added to it.
+    )
+    _copy_count: Synchronized  # The number of files that have been copied so far
     _copy_procs: list[Process]
     _n_copy_procs: int
     _zarr_format: int
     _dimension_separator: Literal[".", "/"]
-    _copy_count = Value("i", 0)  # The number of files that have been copied so far
 
     def __init__(self, source: Path, destination: Path, n_copy_procs: int = 1, log: Logger = LOG):
         super().__init__(source, destination, n_copy_procs, log)
-        # self._source = source
-        # self._destination = destination
-        # self._log = log
-        # self._n_copy_procs = nprocs
+
+        self._stop = Value("b", 0)
+        self._observation_finished = Value("b", 0)
+        self._queue_draining = Value("b", 0)
+        self._copy_count = Value("i", 0)
 
         self._zarr_format = zarr_utils.identify_zarr_format(source, log)
         if self._zarr_format is None:
