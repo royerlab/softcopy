@@ -32,17 +32,24 @@ from . import zarr_utils
 def main(source, destination, method, sleep, timepoints, no_complete_file):
     ensure_high_io_priority()
 
-    zarr_format = zarr_utils.identify_zarr_format(source)
-    if zarr_format is None:
-        raise ValueError(f"Could not find zarr metadata file in archive folder {source}")
+    if source.is_file():
+        if source.suffix == ".raw":
+            data: np.ndarray = np.fromfile(source, dtype=np.uint16)
+            data = data.reshape((1, 1, 1, *data.shape))
+        else:
+            raise ValueError(f"Unsupported file type {source.suffix}")
+    else:
+        zarr_format = zarr_utils.identify_zarr_format(source)
+        if zarr_format is None:
+            raise ValueError(f"Could not find zarr metadata file in archive folder {source}")
 
-    dataset = ts.open({
-        "driver": "zarr" if zarr_format == 2 else "zarr3",
-        "kvstore": {"driver": "file", "path": str(source)},
-    }).result()
+        dataset = ts.open({
+            "driver": "zarr" if zarr_format == 2 else "zarr3",
+            "kvstore": {"driver": "file", "path": str(source)},
+        }).result()
 
-    # Load the data into memory
-    data: np.ndarray = dataset.read().result()
+        # Load the data into memory
+        data: np.ndarray = dataset.read().result()
     print(f"Data loaded into memory ({data.nbytes / 1e9:.2f}GB)")
 
     if data.size == 0:
@@ -51,7 +58,7 @@ def main(source, destination, method, sleep, timepoints, no_complete_file):
     # If the data is 4 dimensional infer (CZYX), expand it to 5 dimensions (TCZYX). We use 5D for ome zarr
     # compatibility
     if data.ndim == 4:
-        data.expand_dims(0)
+        data = np.expand_dims(data, axis=0)
 
     if data.ndim != 5:
         raise ValueError("Input data must be 4 or 5 dimensional.")
