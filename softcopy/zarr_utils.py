@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 import operator
+import time
 from logging import Logger
 from pathlib import Path
 from typing import Literal, Optional
@@ -52,3 +53,17 @@ def dtype_string_zarr2(dtype):
 
     dtype_str = f"{endianness}{dtype_kind}{bytesize}"
     return dtype_str
+
+
+def wait_for_source(source: Path, log: Logger = LOG):
+    """
+    Wait for the source to be created. This is useful if you want to start softcopy and a writer at similar times and don't know
+    how long the writer will take to create the source. This looks for the presence of a metadata file in the source.
+    """
+    zarr_format = identify_zarr_format(source, log)
+    while zarr_format is None:
+        time.sleep(1.0)
+        zarr_format = identify_zarr_format(source, log)
+        log.debug(f"Waiting for source {source} to be created")
+
+    log.debug(f"Source {source} is available")

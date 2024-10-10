@@ -26,7 +26,12 @@ LOG = logging.getLogger(__name__)
     type=float,
     help="time to sleep in each copy process between copies. Can help mitigate down an overwhelemd system",
 )
-def main(targets_file, verbose, nprocs, sleep_time):
+@click.option(
+    "--wait-for-source",
+    default=True,
+    help="If the source does not exist when softcopy is started, wait for it to appear. If false, softcopy will crash if the source does not exist",
+)
+def main(targets_file, verbose, nprocs, sleep_time, wait_for_source):
     """Tranfer data from source to destination as described in a yaml TARGETS_FILE. Uses low priority io to allow
     data to be moved while the microscope is acquiring. The program is zarr-aware and can safely copy an archive
     before it is finished being written to."""
@@ -56,7 +61,9 @@ def main(targets_file, verbose, nprocs, sleep_time):
             # If the source ends with .ome.zarr, then infer ome mode for this entry:
             is_ome = source.name.endswith(".ome.zarr")
             copier_type = OMEZarrCopier if is_ome else ZarrCopier
-            copier = copier_type(source, destination, nprocs, sleep_time, LOG.getChild(f"Target {target_id}"))
+            copier = copier_type(
+                source, destination, nprocs, sleep_time, wait_for_source, LOG.getChild(f"Target {target_id}")
+            )
             copiers.append(copier)
             copier.start()
 

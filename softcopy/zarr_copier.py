@@ -46,7 +46,13 @@ class ZarrCopier(AbstractCopier):
     _dimension_separator: Literal[".", "/"]
 
     def __init__(
-        self, source: Path, destination: Path, n_copy_procs: int = 1, sleep_time: float = 0, log: Logger = LOG
+        self,
+        source: Path,
+        destination: Path,
+        n_copy_procs: int = 1,
+        sleep_time: float = 0,
+        wait_for_source: bool = True,
+        log: Logger = LOG,
     ):
         super().__init__(source, destination, n_copy_procs, sleep_time, log)
 
@@ -54,6 +60,9 @@ class ZarrCopier(AbstractCopier):
         self._observation_finished = Value("b", 0)
         self._queue_draining = Value("b", 0)
         self._copy_count = Value("i", 0)
+
+        if wait_for_source:
+            zarr_utils.wait_for_source(source, log)
 
         self._zarr_format = zarr_utils.identify_zarr_format(source, log)
         if self._zarr_format is None:
@@ -341,7 +350,6 @@ def _copy_worker(
     while stop.value == 0:
         try:
             time.sleep(sleep)
-            print(sleep)
             data: PackedName = queue.get(timeout=1)
             srcfile = data.get_path(files_nd, source, dimension_separator, zarr_format)
             destfile = data.get_path(files_nd, destination, dimension_separator, zarr_format)

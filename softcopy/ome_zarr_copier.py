@@ -29,12 +29,20 @@ class OMEZarrCopier(AbstractCopier):
     _metadata_hashes: dict[str, str]
 
     def __init__(
-        self, source: Path, destination: Path, n_copy_procs: int, sleep_time: float = 0, log: logging.Logger = LOG
+        self,
+        source: Path,
+        destination: Path,
+        n_copy_procs: int,
+        sleep_time: float = 0,
+        wait_for_source: bool = True,
+        log: logging.Logger = LOG,
     ):
         super().__init__(source, destination, n_copy_procs, sleep_time, log)
         image_0_source = source / "0"
         image_0_destination = destination / "0"
-        self._zarr_copier = ZarrCopier(image_0_source, image_0_destination, n_copy_procs, sleep_time, log)
+        self._zarr_copier = ZarrCopier(
+            image_0_source, image_0_destination, n_copy_procs, sleep_time, wait_for_source, log
+        )
         self._metadata_hashes = {}
 
     def start(self):
