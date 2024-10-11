@@ -143,6 +143,7 @@ class ZarrCopier(AbstractCopier):
                     self._sleep_time,
                 ),
             )
+            proc.daemon = True
             proc.start()
             self._copy_procs.append(proc)
 
@@ -168,8 +169,10 @@ class ZarrCopier(AbstractCopier):
     def stop(self):
         self._log.debug("Stopping zarr copier and observer. The zarr archive may not be fully copied!")
         self._stop.value = 1
+        self._queue.close()
+        self._queue.join_thread()
         for proc in self._copy_procs:
-            proc.terminate()
+            proc.kill()
             proc.join()
             proc.close()
 
@@ -214,12 +217,22 @@ class ZarrCopier(AbstractCopier):
         # Perform a final integrity check. The watcher can miss files, so we need to check that all files are copied
         missed_count = 0
         for chunk_index in range(np.prod(self._files_nd)):
+            # This is a very long io-bound method - so we need to be able to exit it with ctrl c
+            if self._stop.value == 1:
+                return
+            
             chunk_packed_name: PackedName = PackedName.from_index(chunk_index)
             chunk_path = chunk_packed_name.get_path(
                 self._files_nd, self._destination, self._dimension_separator, self._zarr_format
             )
 
             if not chunk_path.exists():
+                # Without this, ctrl-c can hang. I have tried a lot of much smarter things to avoid deadlocks
+                # on the queue, or close processes in the correct order.. but I have been unable to figure out why
+                # a delay is needed here in order to keep everything closing. It doesn't seem probabilistic either,
+                # with this delay it always works, without it it never works - which makes me doubt that it's
+                # a problem with handling of locks.
+                time.sleep(0.0001)
                 self._log.debug(f"File {chunk_path} was missed by the observer! Adding to queue for retry.")
                 self._queue.put(chunk_packed_name)
                 missed_count += 1
@@ -285,9 +298,8 @@ class ZarrCopier(AbstractCopier):
 
         if is_complete and not all_chunks_found:
             self._log.warning(
-                "The source zarr archive is corrupted: A 'complete' file is present, but not all data chunks are present."
+                "The source zarr archive seems corrupted: A 'complete' file is present, but not all data chunks are present. Softcopy will continue."
             )
-            exit(1)
 
         return write_seems_finished
 
