@@ -8,67 +8,22 @@
 
 Copies zarr archives from an acquisition frontend to a different disk, using filesystem watching and lockfiles to allow copying during acquisition.
 
-- **Github repository**: <https://github.com/royerlab/softcopy/>
-- **Documentation** <https://royerlab.github.io/softcopy/>
+At the Royer Lab, we have several microscopes which perform large (many TB) acquisitions over a long (~24 hour) period, using a Zarr archive to compress and store bioimages on disk.
+Once the acquisition finishes, we then move the data from the acquisition frontend (the PC in the room, ~100TB storage) to our high performance compute cluster. This allows us to
+free up storage on the frontend and lets our scientists perform analysis on the HPC.
 
-## Getting started with your project
+These datasets are so large, however, that copying data to the HPC can take days, even over connections that are considered fast in the consumer market (>GbPS). This means that
+the instrument drives will be full for a long time, and limits how often we can acquire datasets.
 
-### 1. Create a New Repository
+Softcopy was built to address this issue. It is able to copy zarr archives file-by-file, while they are being written to, with high throughput but low disk and cpu priority.
+This allows much of the data copying to happen during acquisition - the acquisition control software writes chunks with tensorstore, and softcopy starts copying it to cold storage
+immediately.
 
-First, create a repository on GitHub with the same name as this project, and then run the following commands:
+Microscope frontends are usually heavily IO constrained - on a machine with spinning disks, streaming from HD cameras can easily reach 100% disk utilization. Softcopy aims
+to use the disk and CPU as little as possible to prevent putting too much additional strain on system resources. It does this by monitoring filesystem events rather than polling
+the disk, knowing what files to expect from the zarr format, and using OS IO priority controls and queues to allow the disk to feed in data only when the time is right.
 
-```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:royerlab/softcopy.git
-git push -u origin main
-```
+Softcopy is only designed to work with `tensorstore` - `tensorstore` is the fastest zarr writer we are aware of, which is crucial for our applications - but it also uses
+lockfiles which enable softcopy to identify which files are not ready to be copied.
 
-### 2. Set Up Your Development Environment
-
-Then, install the environment and the pre-commit hooks with
-
-```bash
-make install
-```
-
-This will also generate your `uv.lock` file
-
-### 3. Run the pre-commit hooks
-
-Initially, the CI/CD pipeline might be failing due to formatting issues. To resolve those run:
-
-```bash
-uv run pre-commit run -a
-```
-
-### 4. Commit the changes
-
-Lastly, commit the changes made by the two steps above to your repository.
-
-```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
-```
-
-You are now ready to start development on your project!
-The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
-
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/mkdocs/#enabling-the-documentation-on-github).
-To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
-
-## Releasing a new version
-
-- Create an API Token on [PyPI](https://pypi.org/).
-- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/royerlab/softcopy/settings/secrets/actions/new).
-- Create a [new release](https://github.com/royerlab/softcopy/releases/new) on Github.
-- Create a new tag in the form `*.*.*`.
-
-For more details, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/cicd/#how-to-trigger-a-release).
-
----
-
-Repository initiated with [fpgmaas/cookiecutter-uv](https://github.com/fpgmaas/cookiecutter-uv).
+TODO: Document targets.yaml, how to use the CLI, pitfalls, etc.
