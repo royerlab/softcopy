@@ -8,6 +8,11 @@
 
 Copies zarr archives from an acquisition frontend to a different disk, using filesystem watching and lockfiles to allow copying during acquisition.
 
+> NOTE:
+> This tool monitors lockfiles in order to detect changes from tensorstore. You must set file_io_locking.mode to `lockfile`
+> if you want to be sure this will work with your writer!
+> https://google.github.io/tensorstore/kvstore/file/index.html#json-Context.file_io_locking.mode
+
 ## Background
 At the Royer Lab, we have several microscopes which perform large (many TB) acquisitions over a long (~24 hour) period, using a Zarr archive to compress and store bioimages on disk.
 Once the acquisition finishes, we then move the data from the acquisition frontend (the PC in the room, ~100TB storage) to our high performance compute cluster. This allows us to
