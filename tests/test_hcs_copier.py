@@ -1,4 +1,5 @@
 import random
+import subprocess
 import tempfile
 import time
 from pathlib import Path
@@ -29,6 +30,7 @@ def slow_write(target: Path):
             "dtype": "<u2",
             "shape": shape,
             "chunks": [1, 1, z_chunk, 30, 40],
+            "dimension_separator": "/",
         },
         "create": True,
         "delete_existing": True,
@@ -64,6 +66,7 @@ def slow_write_hcs(target: Path, start_barrier: Event):
                     pos._create_image_meta(str(image), [iohub.ngff.TransformationMeta(type="scale", scale=scale)])
 
                     targets.append(Path(pos.zattrs.store.path) / Path(pos.zattrs.key).parent / str(image))
+    plate.wells()
 
     threads = []
     for target in targets:
@@ -83,3 +86,27 @@ def test_hcs_copier():
     thread = Thread(target=slow_write_hcs, args=(plate_path, start_barrier))
     thread.start()
     start_barrier.set()
+    time.sleep(5)
+
+    from softcopy.hcs_copier import HCSCopier
+
+    copier = HCSCopier(plate_path, root_path / "copy.ome.zarr", 4)
+
+    copier.start()
+
+    thread.join()
+
+    copier.stop()
+    copier.join()
+
+    def compare_directories(dir1: Path, dir2: Path):
+        result = subprocess.run(  # noqa: S602
+            f"diff -qr {dir1} {dir2} | grep -E 'Only in|Files .* differ'", shell=True, capture_output=True, text=True
+        )
+        print(result.stdout)
+
+    compare_directories(plate_path, root_path / "copy.ome.zarr")
+
+
+if __name__ == "__main__":
+    test_hcs_copier()
