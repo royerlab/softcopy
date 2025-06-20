@@ -15,7 +15,7 @@ from test_softcopy import run_softcopy
 
 
 def slow_write(target: Path):
-    shape = [5, 4, 100, 100, 100]
+    shape = [3, 3, 100, 100, 100]
     z_chunk = 20
     archive = ts.open({
         "driver": "zarr",
