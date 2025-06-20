@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import random
 import subprocess
 import tempfile
@@ -8,7 +9,9 @@ from threading import Event, Thread
 import iohub
 import iohub.ngff
 import numpy as np
+import pytest
 import tensorstore as ts
+from test_softcopy import run_softcopy
 
 
 def slow_write(target: Path):
@@ -88,16 +91,26 @@ def test_hcs_copier():
     start_barrier.set()
     time.sleep(5)
 
-    from softcopy.hcs_copier import HCSCopier
+    ctx = mp.get_context("spawn")
+    softcopy_process = ctx.Process(target=run_softcopy, args=(plate_path, root_path / "copy.ome.zarr"))
+    softcopy_process.start()
 
-    copier = HCSCopier(plate_path, root_path / "copy.ome.zarr", 4)
+    # from softcopy.hcs_copier import HCSCopier
 
-    copier.start()
+    # copier = HCSCopier(plate_path, root_path / "copy.ome.zarr", 4)
+
+    # copier.start()
 
     thread.join()
 
-    copier.stop()
-    copier.join()
+    softcopy_process.join(timeout=120)
+
+    if softcopy_process.is_alive():
+        softcopy_process.terminate()
+        pytest.fail("softcopy process did not complete in 2 minutes")
+
+    # copier.stop()
+    # copier.join()
 
     def compare_directories(dir1: Path, dir2: Path):
         result = subprocess.run(  # noqa: S602
