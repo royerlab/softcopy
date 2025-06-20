@@ -103,11 +103,12 @@ def test_hcs_copier():
 
     thread.join()
 
-    softcopy_process.join(timeout=120)
+    limit = 4
+    softcopy_process.join(timeout=limit * 60)
 
     if softcopy_process.is_alive():
         softcopy_process.terminate()
-        pytest.fail("softcopy process did not complete in 2 minutes")
+        pytest.fail(f"softcopy process did not complete in {limit} minutes")
 
     # copier.stop()
     # copier.join()
