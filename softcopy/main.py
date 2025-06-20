@@ -4,11 +4,9 @@ from pathlib import Path
 
 import click
 import psutil
-import yaml
 from psutil import AccessDenied
 
-from .copier import AbstractCopier
-from .ome_zarr_copier import OMEZarrCopier
+from .hcs_copier import HCSCopier
 from .zarr_copier import ZarrCopier
 
 BOLD_SEQ = "\033[1m"
@@ -17,7 +15,8 @@ LOG = logging.getLogger(__name__)
 
 
 @click.command()
-@click.argument("targets_file", type=click.File("r"))
+@click.argument("source-path", type=click.Path(file_okay=False, dir_okay=True, path_type=Path))
+@click.argument("dest-path", type=click.Path(file_okay=False, dir_okay=True, path_type=Path))
 @click.option("--verbose", default=False, is_flag=True, help="print debug information while running")
 @click.option("--nprocs", default=1, type=int, help="number of processes to use for copying")
 @click.option(
@@ -31,7 +30,7 @@ LOG = logging.getLogger(__name__)
     default=True,
     help="If the source does not exist when softcopy is started, wait for it to appear. If false, softcopy will crash if the source does not exist",
 )
-def main(targets_file, verbose, nprocs, sleep_time, wait_for_source):
+def main(source_path, dest_path, verbose, nprocs, sleep_time, wait_for_source):
     """Tranfer data from source to destination as described in a yaml TARGETS_FILE. Uses low priority io to allow
     data to be moved while the microscope is acquiring. The program is zarr-aware and can safely copy an archive
     before it is finished being written to."""
@@ -40,40 +39,49 @@ def main(targets_file, verbose, nprocs, sleep_time, wait_for_source):
     LOG.setLevel(log_level)
     logging.basicConfig(format="[%(asctime)s : %(levelname)s from %(name)s] " + BOLD_SEQ + "%(message)s" + RESET_SEQ)
 
-    # Load the yaml at a normal io priority because it is small and likely not on
-    # the target disk
-    all_yaml = yaml.safe_load(targets_file)
-    targets = all_yaml["targets"]
-    LOG.debug(f"Number of targets: {len(targets)}")
-
-    # Now that we have the yaml, we floor our io priority. We are about to read zarr metadata, and even doing that
-    # at the wrong time could slow down the writer process!
     set_low_io_priority()
 
-    copiers: list[AbstractCopier] = []
+    try:
+        source_path = source_path.expanduser().absolute()
+        dest_path = dest_path.expanduser().absolute()
+    except Exception:
+        LOG.exception("Error expanding paths")
+        sys.exit(1)
 
-    # TODO: actually run the copiers in parallel
+    filetype_map = {
+        ".ome.zarr": HCSCopier,
+        ".zarr": ZarrCopier,
+    }
+
+    source_type = source_path.suffix.lower()
+    if source_type not in filetype_map:
+        LOG.error(
+            f"Unsupported source file type: {source_path.suffix}. Supported types are: {list(filetype_map.keys())}"
+        )
+        sys.exit(1)
+
+    copier_class = filetype_map[source_type]
+    copier = copier_class(
+        source_path,
+        dest_path,
+        n_copy_procs=nprocs,
+        sleep_time=sleep_time,
+        wait_for_source=wait_for_source,
+        log=LOG.getChild("Copier"),
+    )
 
     try:
-        for target_id, target in enumerate(targets):
-            source = Path(target["source"]).expanduser().absolute()
-            destination = Path(target["destination"]).expanduser().absolute()
-            # If the source ends with .ome.zarr, then infer ome mode for this entry:
-            is_ome = source.name.endswith(".ome.zarr")
-            copier_type = OMEZarrCopier if is_ome else ZarrCopier
-            copier = copier_type(
-                source, destination, nprocs, sleep_time, wait_for_source, LOG.getChild(f"Target {target_id}")
-            )
-            copiers.append(copier)
-            copier.start()
-
-        # Wait for all copiers to finish
-        for copier in copiers:
-            copier.join()
+        LOG.info(f"Starting copy from {source_path} to {dest_path} using {copier_class.__name__}")
+        copier.start()
+        copier.join()
+        LOG.info("Copy completed successfully.")
     except KeyboardInterrupt:
-        LOG.info("Keyboard interrupt recieved, stopping all copiers")
-        for copier in copiers:
-            copier.stop()
+        LOG.info("Keyboard interrupt received, stopping copier.")
+        copier.stop()
+    except Exception:
+        LOG.exception("An error occurred during copying")
+        copier.stop()
+        sys.exit(1)
 
 
 def set_low_io_priority():

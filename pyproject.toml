@@ -1,6 +1,6 @@
 [project]
 name = "softcopy"
-version = "0.0.2"
+version = "0.0.10"
 description = "Copies zarr archives from an acquisition frontend to a different disk, using filesystem watching and lockfiles to allow copying during acquisition."
 authors = [{ name = "Seth Hinz", email = "sethhinz@me.com" }]
 readme = "README.md"
@@ -34,6 +34,7 @@ dev-dependencies = [
     "mypy>=0.991",
     "ruff>=0.0.235",
     "pytest-cov>=5.0.0",
+    "iohub>=0.2.0",
 ]
 
 [build-system]

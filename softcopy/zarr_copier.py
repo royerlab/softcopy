@@ -180,7 +180,7 @@ class ZarrCopier(AbstractCopier):
             self._observer.stop()
             self._observer.join()
 
-    def join(self):
+    def join(self):  # noqa: C901
         time_start = time.time()
         estimated_files = np.prod(self._files_nd)
 
@@ -220,7 +220,7 @@ class ZarrCopier(AbstractCopier):
             # This is a very long io-bound method - so we need to be able to exit it with ctrl c
             if self._stop.value == 1:
                 return
-            
+
             chunk_packed_name: PackedName = PackedName.from_index(chunk_index)
             chunk_path = chunk_packed_name.get_path(
                 self._files_nd, self._destination, self._dimension_separator, self._zarr_format
