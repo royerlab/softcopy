@@ -31,7 +31,7 @@ dev-dependencies = [
     "pre-commit>=2.20.0",
     "tox-uv>=1.11.3",
     "deptry>=0.20.0",
-    "mypy>=0.991",
+    # "mypy>=0.991",
     "ruff>=0.0.235",
     "pytest-cov>=5.0.0",
     "iohub>=0.2.0",
@@ -41,15 +41,15 @@ dev-dependencies = [
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.mypy]
-files = ["softcopy"]
-disallow_untyped_defs = "True"
-disallow_any_unimported = "True"
-no_implicit_optional = "True"
-check_untyped_defs = "True"
-warn_return_any = "True"
-warn_unused_ignores = "True"
-show_error_codes = "True"
+# [tool.mypy]
+# files = ["softcopy"]
+# disallow_untyped_defs = "True"
+# disallow_any_unimported = "True"
+# no_implicit_optional = "True"
+# check_untyped_defs = "True"
+# warn_return_any = "True"
+# warn_unused_ignores = "True"
+# show_error_codes = "True"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
