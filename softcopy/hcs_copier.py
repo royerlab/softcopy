@@ -121,7 +121,6 @@ class HCSCopier(AbstractCopier):
             self._copiers.append(zarr_copier)
 
         path_map = create_metadata_path_mapping(source, destination)
-        print(path_map)
         self._metadata_copier = SlowCopier(path_map)
 
     def start(self):

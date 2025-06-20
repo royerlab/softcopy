@@ -103,9 +103,10 @@ def test_hcs_copier():
         result = subprocess.run(  # noqa: S602
             f"diff -qr {dir1} {dir2} | grep -E 'Only in|Files .* differ'", shell=True, capture_output=True, text=True
         )
-        print(result.stdout)
+        return result.stdout.strip()
 
-    compare_directories(plate_path, root_path / "copy.ome.zarr")
+    # compare_directories(plate_path, root_path / "copy.ome.zarr")
+    assert not compare_directories(plate_path, root_path / "copy.ome.zarr"), "Directories differ after copying"
 
 
 if __name__ == "__main__":
