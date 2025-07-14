@@ -52,15 +52,20 @@ def main(source_path, dest_path, verbose, nprocs, sleep_time, wait_for_source):
         ".ome.zarr": HCSCopier,
         ".zarr": ZarrCopier,
     }
-
-    source_type = source_path.suffix.lower()
-    if source_type not in filetype_map:
-        LOG.error(
-            f"Unsupported source file type: {source_path.suffix}. Supported types are: {list(filetype_map.keys())}"
-        )
+    # We are going to find the longeest (most specific) suffix match - so we sort the keys by length
+    # in descending order. This way, if a file has multiple suffixes (e.g., .ome.zarr and .zarr), the more specific
+    # one will be chosen first.
+    suffix_choices = sorted(filetype_map.keys(), key=lambda suffix: len(suffix), reverse=True)
+    best_suffix = next((
+        suffix for suffix in suffix_choices if source_path.name.lower().endswith(suffix)
+    ), None)
+    if best_suffix is None:
+        LOG.error(f"Source path {source_path} does not have a recognized suffix. Supported suffixes are: {', '.join(suffix_choices)}")
         sys.exit(1)
 
-    copier_class = filetype_map[source_type]
+    print(f"Best suffix found: {best_suffix}")
+    copier_class = filetype_map[best_suffix]
+
     copier = copier_class(
         source_path,
         dest_path,

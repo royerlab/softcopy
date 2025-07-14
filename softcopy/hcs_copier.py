@@ -1,5 +1,6 @@
 import logging
 import shutil
+import time
 from pathlib import Path
 from threading import Event, Thread
 
@@ -60,6 +61,13 @@ def create_metadata_path_mapping(source: Path, destination: Path) -> list[tuple[
 
     return path_mappings
 
+def wait_for_metadata(source: Path, log: logging.Logger):
+    while True:
+        log.info(f"Waiting for metadata files in {source} to be created.")
+        if all((source / f).exists() for f in [".zattrs", ".zgroup"]):
+            log.info("Metadata files found.")
+            break
+        time.sleep(1)
 
 class SlowCopier(Thread):
     def __init__(self, path_mappings: list[tuple[Path, Path]]):
@@ -110,6 +118,10 @@ class HCSCopier(AbstractCopier):
     ):
         super().__init__(source, destination, n_copy_procs, sleep_time, log)
 
+        if wait_for_source:
+            wait_for_metadata(source, log)
+            time.sleep(10) # Make sure that the rest of the metadata files are written - we can't check for them
+                            # explicitly because they are dynamically defined by the OME-Zarr structure.
         image_paths = get_all_zarr_paths(source)
         print(image_paths)
         self._copiers = []
