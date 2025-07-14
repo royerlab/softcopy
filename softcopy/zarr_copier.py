@@ -19,6 +19,7 @@ from watchdog.observers import Observer, ObserverType
 from . import zarr_utils
 from .copier import AbstractCopier
 from .packed_name import PackedName
+from .priority import set_low_io_priority
 
 LOG = logging.getLogger(__name__)
 
@@ -356,6 +357,7 @@ def _copy_worker(
     count: Synchronized,
     sleep: float = 0,
 ):
+    set_low_io_priority()
     srcfile = None
     destfile = None
 

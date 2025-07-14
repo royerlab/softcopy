@@ -84,6 +84,8 @@ class SlowCopier(Thread):
                     last_copy_time = self.last_copy_times[destination]
 
                     if last_copy_time is None or source_mtime > last_copy_time:
+                        # Ensure the destination directory exists:
+                        destination.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(source, destination)
                         self.last_copy_times[destination] = source.stat().st_mtime
                         LOG.debug(f"Copied {source} to {destination}")
@@ -95,7 +97,7 @@ class SlowCopier(Thread):
     def run(self):
         while not self.stop_event.is_set():
             self._copy_pass()
-            self.stop_event.wait(0.1)  # Sleep for 0.1 seconds or until stop_event is set
+            self.stop_event.wait(4)  # Sleep for 4 seconds or until stop_event is set
 
     def join(self):
         self.stop_event.set()
@@ -120,7 +122,7 @@ class HCSCopier(AbstractCopier):
 
         if wait_for_source:
             wait_for_metadata(source, log)
-            time.sleep(10) # Make sure that the rest of the metadata files are written - we can't check for them
+            time.sleep(60) # Make sure that the rest of the metadata files are written - we can't check for them
                             # explicitly because they are dynamically defined by the OME-Zarr structure.
         image_paths = get_all_zarr_paths(source)
         print(image_paths)

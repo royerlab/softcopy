@@ -3,10 +3,9 @@ import sys
 from pathlib import Path
 
 import click
-import psutil
-from psutil import AccessDenied
 
 from .hcs_copier import HCSCopier
+from .priority import set_low_io_priority
 from .zarr_copier import ZarrCopier
 
 BOLD_SEQ = "\033[1m"
@@ -18,12 +17,12 @@ LOG = logging.getLogger(__name__)
 @click.argument("source-path", type=click.Path(file_okay=False, dir_okay=True, path_type=Path))
 @click.argument("dest-path", type=click.Path(file_okay=False, dir_okay=True, path_type=Path))
 @click.option("--verbose", default=False, is_flag=True, help="print debug information while running")
-@click.option("--nprocs", default=1, type=int, help="number of processes to use for copying")
+@click.option("--nprocs", default=8, type=int, help="number of processes to use for copying")
 @click.option(
     "--sleep-time",
-    default=0.0,
+    default=5.0,
     type=float,
-    help="time to sleep in each copy process between copies. Can help mitigate down an overwhelemd system",
+    help="time to sleep in each copy process between copies. Can help mitigate down an overwhelemed system",
 )
 @click.option(
     "--wait-for-source",
@@ -87,21 +86,9 @@ def main(source_path, dest_path, verbose, nprocs, sleep_time, wait_for_source):
         LOG.exception("An error occurred during copying")
         copier.stop()
         sys.exit(1)
-
-
-def set_low_io_priority():
-    try:
-        if sys.platform == "linux":
-            # On linux, 7 is the highest niceness => lowest io priority. IDLE is the lowest priority
-            # class
-            psutil.Process().ionice(psutil.IOPRIO_CLASS_IDLE)
-        elif sys.platform == "win32":
-            # On windows, 0 is "very low" io priority
-            psutil.Process().ionice(0)
-        else:
-            LOG.warning("Cannot set low io priority on this platform")
-    except (PermissionError, AccessDenied):
-        LOG.warning("Could not set low io priority, you may need to run as root to do this")
+    finally:
+        copier.join()
+        LOG.info("Copier shut down successfully.")
 
 
 if __name__ == "__main__":
