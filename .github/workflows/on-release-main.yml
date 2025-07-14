@@ -51,7 +51,7 @@ jobs:
         run: uvx --from build pyproject-build --installer uv
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.8.14
+        uses: pypa/gh-action-pypi-publish@v1.12.4
       # - name: Publish package
       #   run: uvx twine upload dist/*
       # env:
