@@ -12,7 +12,7 @@ dependencies = [
     "psutil>=6.0.0",
     "click>=8.1.7",
     "pyyaml>=6.0.2",
-    "iohub>=0.2.0",
+    "iohub>=0.2.0,<0.3.0",
 ]
 
 [project.urls]

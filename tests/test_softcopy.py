@@ -23,6 +23,8 @@ def run_softcopy(source_path: Path, dest_path: Path):
         [
             str(source_path),
             str(dest_path),
+            "--sleep-time",
+            "0.01",
         ],
         standalone_mode=False,
     )
